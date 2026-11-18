@@ -26,8 +26,8 @@ export function isSafeRelativePath(path: string): boolean {
 const WINDOWS_UNSAFE_CHARACTER = /[<>:"\\|?*\u0000-\u001f]/;
 /** Windows drops trailing dots and spaces (`.. ` is `..`). */
 const TRAILING_DOT_OR_SPACE = /[. ]$/;
-/** Device names Windows reserves in every folder, with or without an extension (`CON.md`, `nul.tar.md`, `COM¹ .md`). */
-const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³]) *(?:\.|$)/i;
+/** Device names Windows reserves in every folder, with or without an extension (`CON.md`, `nul.tar.md`, `COM0 .md`, `LPT¹.md`). */
+const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³]) *(?:\.|$)/i;
 
 /**
  * Whether Windows writes the path as the same file, inside the vault. Every device checks it before a local create or

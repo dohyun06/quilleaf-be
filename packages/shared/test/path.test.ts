@@ -56,7 +56,7 @@ describe("vault paths", () => {
   });
 
   it("accepts names that only contain a device name", () => {
-    const good = ["CONsole.md", "my con.md", "COM0.md", "COM10.md", "lpt.md", "notes/nullable.md", "a-con.md"];
+    const good = ["CONsole.md", "my con.md", "COM10.md", "lpt.md", "notes/nullable.md", "a-con.md"];
     for (const path of good) expect(isWindowsSafePath(path), path).toBe(true);
   });
 
