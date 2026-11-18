@@ -51,7 +51,7 @@ describe("vault paths", () => {
   });
 
   it("flags Windows reserved characters, control characters and device names in any segment", () => {
-    const bad = ["what?.md", "a<b.md", "a>b.md", 'say "hi".md', "a|b.md", "a*.md", "a\u0001b.md", "tab\there.md", "CON.md", "con", "notes/Aux.md", "NUL.tar.md", "COM1.md", "lpt9/a.md", "prn.MD"];
+    const bad = ["what?.md", "a<b.md", "a>b.md", 'say "hi".md', "a|b.md", "a*.md", "a\u0001b.md", "tab\there.md", "CON.md", "con", "notes/Aux.md", "NUL.tar.md", "COM1.md", "lpt9/a.md", "prn.MD", "COM¹.md", "LPT³", "CONIN$.md", "conout$", "CON .md"];
     for (const path of bad) expect(isWindowsSafePath(path), path).toBe(false);
   });
 
