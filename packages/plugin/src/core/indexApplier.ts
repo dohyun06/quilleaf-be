@@ -172,5 +172,5 @@ export class IndexApplier {
 function temporaryMovePath(path: string, fileId: string): string {
   const dot = path.lastIndexOf(".");
   const stem = dot > path.lastIndexOf("/") ? path.slice(0, dot) : path;
-  return `${stem}.crdt-move-${fileId.slice(0, 6)}.md`;
+  return `${stem}.quilleaf-move-${fileId.slice(0, 6)}.md`;
 }

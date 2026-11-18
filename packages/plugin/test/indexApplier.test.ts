@@ -83,6 +83,14 @@ describe("IndexApplier restores the record when a rename fails", () => {
     expect(store.findIdByPath("b.md")).toBeNull();
   });
 
+  it("breaks a swap by moving one note aside under a quilleaf-move name", async () => {
+    const vault = new FakeVault({ "a.md": "A", "b.md": "B" });
+    const { applier, store } = await setup(vault, { [NOTE_ID]: "b.md", [OTHER_ID]: "a.md" }, { [NOTE_ID]: "a.md", [OTHER_ID]: "b.md" });
+    await applier.apply();
+    expect([...vault.files.keys()].sort()).toEqual(["a.quilleaf-move-aaaaaa.md", "b.md"]);
+    expect(store.get(NOTE_ID)?.path).toBe("a.quilleaf-move-aaaaaa.md");
+  });
+
   it("restores the record of a move aside (swap) and reports the failure", async () => {
     const vault = new FailingRenameVault({ "a.md": "A", "b.md": "B" });
     const { applier, store, notices } = await setup(vault, { [NOTE_ID]: "b.md", [OTHER_ID]: "a.md" }, { [NOTE_ID]: "a.md", [OTHER_ID]: "b.md" });
