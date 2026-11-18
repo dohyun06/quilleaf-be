@@ -46,10 +46,12 @@ export class LocalChangeHandler {
     // the same-path rule (spec §4.4) settles the collision on every device.
     if (live && !this.deps.records.get(live.fileId)) return this.adoptRemoteEntry(live.fileId, path);
     const text = await this.deps.vault.read(path);
-    if (text === null || !this.fitsSizeLimit(path, text)) return;
+    if (text === null) return;
     // A synced note renamed as delete + create: moveTracked holds a name Windows cannot hold instead of dropping it.
-    const renamed = this.takePendingDeleteWithBase(text);
+    // Before the size check, or an oversize rename would leave the delete to remove the note everywhere.
+    const renamed = this.takeRenamedFrom(path, text);
     if (renamed) return this.moveTracked(renamed.fileId, path);
+    if (!this.fitsSizeLimit(path, text)) return;
     if (!isWindowsSafePath(path)) return this.notifyUnsafeName(path, null);
     await this.registerNew(path, text);
   }
@@ -168,15 +170,30 @@ export class LocalChangeHandler {
     await this.deps.records.set(fileId, { path, base: text });
   }
 
-  /** Empty files are never paired: any two empty notes would look like a rename. */
-  private takePendingDeleteWithBase(text: string): PendingDelete | null {
-    if (text === "") return null;
-    for (const item of this.pendingDeletes.values()) {
-      if (item.base === text) {
-        this.pendingDeletes.delete(item.fileId);
-        return item;
-      }
-    }
-    return null;
+  /**
+   * The pending delete a create is the other half of. Same text is a rename (never empty text: any two empty notes
+   * would match). A create under a name Windows cannot hold, or of a note held under one, pairs whatever its text:
+   * unpaired, the delete would remove the note from every other device, and a wrong pair only renames and edits a
+   * note the user deleted. Then preferred: the note's index path (renamed back), its file name (a folder rename), the oldest.
+   */
+  private takeRenamedFrom(path: string, text: string): PendingDelete | null {
+    const sameText = (item: PendingDelete) => text !== "" && item.base === text;
+    const anyText = !isWindowsSafePath(path);
+    const candidates = [...this.pendingDeletes.values()].filter((item) => anyText || sameText(item) || this.isHeld(item.fileId));
+    const match =
+      candidates.find(sameText) ??
+      candidates.find((item) => this.deps.index.get(item.fileId)?.path === path) ??
+      candidates.find((item) => fileName(item.path) === fileName(path)) ??
+      candidates[0];
+    if (match) this.pendingDeletes.delete(match.fileId);
+    return match ?? null;
   }
+
+  private isHeld(fileId: string): boolean {
+    return this.deps.records.get(fileId)?.heldIndexPath !== undefined;
+  }
+}
+
+function fileName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }

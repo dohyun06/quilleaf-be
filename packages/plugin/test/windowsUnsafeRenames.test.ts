@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildIndexDocName, INDEX_FILES_MAP_KEY } from "@quilleaf/shared";
+import { buildIndexDocName, INDEX_FILES_MAP_KEY, MAX_SYNC_FILE_BYTES } from "@quilleaf/shared";
 import type * as Y from "yjs";
 import { type Device, settle, startDevice, TEST_VAULT_ID } from "./fakes/device";
 import { LoopbackHub } from "./fakes/loopback";
@@ -78,5 +78,33 @@ describe("renames to names Windows cannot hold that also fail the .md or drive c
     await settle([a, b]);
     expect(filesOf(b)).toEqual({});
     expect(serverPaths(hub)).toEqual(["a.md (deleted)"]);
+  });
+});
+
+describe("renames to names Windows cannot hold reported as delete + create (regression: synced deletion)", () => {
+  const oversize = "x".repeat(MAX_SYNC_FILE_BYTES + 1);
+  it.each([
+    ["an empty note", "", "", ""],
+    ["a note edited in the same save", "body", "edited body", "edited body"],
+    ["a note grown past the size limit", "body", oversize, "body"],
+  ])("pairs %s", async (_case, before, after, onB) => {
+    const { hub, a, b } = await syncedPair({ "a.md": before });
+    a.vault.externalDelete("a.md");
+    a.vault.externalWrite("a?.md", after);
+    await settle([a, b]);
+    expect(filesOf(b)).toEqual({ "a.md": onB });
+    expect(serverPaths(hub)).toEqual(["a.md"]);
+    expect(unsafeNotices(a)).toEqual([{ kind: "windows-unsafe-name", path: "a?.md", keptPath: "a.md" }]);
+    nothingTrashed([a, b]);
+  });
+
+  it("pairs each note of a folder renamed this way by file name", async () => {
+    const { hub, a, b } = await syncedPair({ "Misc/x.md": "x", "Misc/y.md": "y" });
+    for (const name of ["x", "y"]) a.vault.externalDelete(`Misc/${name}.md`);
+    for (const name of ["y", "x"]) a.vault.externalWrite(`Misc./${name}.md`, `${name} edited`);
+    await settle([a, b]);
+    expect(filesOf(b)).toEqual({ "Misc/x.md": "x edited", "Misc/y.md": "y edited" });
+    expect(serverPaths(hub)).toEqual(["Misc/x.md", "Misc/y.md"]);
+    nothingTrashed([a, b]);
   });
 });
