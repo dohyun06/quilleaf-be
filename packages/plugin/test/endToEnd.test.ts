@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
-import { buildIndexDocName } from "@obsidian-crdt/shared";
+import { randomUUID } from "node:crypto";
+import { buildFileDocName, buildIndexDocName } from "@obsidian-crdt/shared";
 import { createJsonLogger, createSyncServer, DocumentStore, openDatabase, TokenStore } from "@obsidian-crdt/server";
 import { HocuspocusSyncer } from "../src/core/hocuspocusSyncer";
 import type { SyncNotice } from "../src/core/notices";
@@ -27,6 +28,8 @@ async function eventually(assertion: () => void, timeoutMs = 5000): Promise<void
     }
   }
 }
+
+const fileDocName = () => buildFileDocName(TEST_VAULT_ID, randomUUID());
 
 async function startServer() {
   const db = openDatabase(":memory:");
@@ -120,6 +123,38 @@ describe("end to end with the real server", () => {
     const rejectionsNow = logs.filter((line) => line.includes("auth.rejected")).length;
     await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(logs.filter((line) => line.includes("auth.rejected")).length).toBe(rejectionsNow);
+  });
+
+  it("keeps hundreds of documents connected across a reconnect (regression: maxPendingDocuments reset loop)", async () => {
+    const warn = vi.spyOn(console, "warn");
+    cleanups.push(() => warn.mockRestore());
+    const { url, token, logs } = await startServer();
+    const statuses: string[] = [];
+    const syncer = new HocuspocusSyncer({ url, token, onAuthFailed: () => {}, onStatus: (status) => statuses.push(status) });
+    cleanups.push(() => syncer.destroy());
+    const accepted = () => logs.filter((line) => line.includes("auth.accepted")).length;
+    const handles = Array.from({ length: 250 }, () => syncer.connect(fileDocName(), new Y.Doc()));
+    await Promise.all(handles.map((handle) => handle.whenSynced()));
+    expect(accepted()).toBe(250);
+    expect(statuses.at(-1)).toBe("connected");
+
+    syncer.pause(); // on reconnect every attached document authenticates again, all at once
+    await eventually(() => expect(statuses.at(-1)).toBe("disconnected"));
+    syncer.resume();
+    await eventually(() => expect(accepted()).toBe(500), 10_000);
+    await eventually(() => expect(statuses.at(-1)).toBe("connected"));
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("maxPendingDocuments");
+  }, 30_000);
+
+  it("reports a rejected token once, however many sockets it reaches", async () => {
+    const { url } = await startServer();
+    let authFailures = 0;
+    const syncer = new HocuspocusSyncer({ url, token: "wrong-token", onAuthFailed: () => authFailures++ });
+    cleanups.push(() => syncer.destroy());
+    for (let i = 0; i < 150; i++) syncer.connect(fileDocName(), new Y.Doc());
+    await eventually(() => expect(authFailures).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(authFailures).toBe(1);
   });
 
   it("publishes no presence for documents without a bound editor (regression: awareness renewal spam)", async () => {

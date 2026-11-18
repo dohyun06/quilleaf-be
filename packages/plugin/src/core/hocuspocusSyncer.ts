@@ -13,24 +13,35 @@ export interface HocuspocusSyncerOptions {
   onStatus?: (status: ConnectionStatus) => void;
 }
 
-/** All documents share one WebSocket (multiplexing). */
+/**
+ * Documents per WebSocket. Every (re)connect sends one auth request per attached document at once, and the server
+ * closes a socket with `maxPendingDocuments` (default 100) of them unanswered; staying under it holds on every reconnect.
+ */
+export const DOCS_PER_SOCKET = 64;
+
+interface Shard {
+  socket: HocuspocusProviderWebsocket;
+  docs: number;
+  status: ConnectionStatus;
+}
+
+/** Documents share WebSockets (multiplexing), at most DOCS_PER_SOCKET each. */
 export class HocuspocusSyncer implements DocSyncer {
-  private readonly socket: HocuspocusProviderWebsocket;
+  private readonly shards: Shard[] = [];
   private readonly providers = new Set<HocuspocusProvider>();
   private authFailed = false;
+  private paused = false;
+  private reported: ConnectionStatus | null = null;
 
   constructor(private readonly options: HocuspocusSyncerOptions) {
     assertSecureServerUrl(options.url);
-    this.socket = new HocuspocusProviderWebsocket({
-      url: options.url,
-      maxDelay: RECONNECT_MAX_DELAY_MS,
-      onStatus: ({ status }) => options.onStatus?.(status as ConnectionStatus),
-    });
   }
 
   connect(docName: string, doc: Y.Doc): DocSyncHandle {
+    const shard = this.shards.find((s) => s.docs < DOCS_PER_SOCKET) ?? this.addShard();
+    shard.docs++;
     const provider = new HocuspocusProvider({
-      websocketProvider: this.socket,
+      websocketProvider: shard.socket,
       name: docName,
       document: doc,
       token: this.options.token,
@@ -46,36 +57,68 @@ export class HocuspocusSyncer implements DocSyncer {
       isSynced: () => provider.isSynced,
       whenSynced: () => waitForSynced(provider),
       destroy: () => {
-        this.providers.delete(provider);
+        if (!this.providers.delete(provider)) return;
         provider.destroy();
+        shard.docs--;
       },
     };
   }
 
   /** Disconnects without forgetting documents; edits keep accumulating locally. */
   pause(): void {
-    this.socket.disconnect();
+    this.paused = true;
+    for (const { socket } of this.shards) socket.disconnect();
   }
 
   resume(): void {
+    this.paused = false;
     if (this.authFailed) return;
     // disconnect() closes asynchronously. If resume() lands before the close event, connect() returns early
     // (still "connected") without re-arming, and the close would then leave the socket down for good.
-    this.socket.shouldConnect = true;
-    void this.socket.connect();
+    for (const { socket } of this.shards) {
+      socket.shouldConnect = true;
+      void socket.connect();
+    }
   }
 
   destroy(): void {
     for (const provider of this.providers) provider.destroy();
     this.providers.clear();
-    this.socket.destroy();
+    for (const { socket } of this.shards) socket.destroy();
+    this.shards.length = 0;
+  }
+
+  private addShard(): Shard {
+    // made before its socket, which may report a status while it is constructed
+    const shard = { docs: 0, status: "connecting" } as Shard;
+    shard.socket = new HocuspocusProviderWebsocket({
+      url: this.options.url,
+      maxDelay: RECONNECT_MAX_DELAY_MS,
+      // a socket added while paused or after an auth failure stays down like the others
+      autoConnect: !this.paused && !this.authFailed,
+      onStatus: ({ status }) => {
+        shard.status = status as ConnectionStatus;
+        this.reportStatus();
+      },
+    });
+    this.shards.push(shard);
+    return shard;
+  }
+
+  /** One status for all sockets: connected only when every socket is. */
+  private reportStatus(): void {
+    const all = this.shards.map((s) => s.status);
+    const status: ConnectionStatus = all.every((s) => s === "connected") ? "connected" : all.includes("disconnected") ? "disconnected" : "connecting";
+    if (status === this.reported) return;
+    this.reported = status;
+    this.options.onStatus?.(status);
   }
 
   /** A rejected token will not start working by retrying; stop until the user fixes the settings. */
   private handleAuthFailed(): void {
     if (this.authFailed) return;
     this.authFailed = true;
-    this.socket.disconnect();
+    for (const { socket } of this.shards) socket.disconnect();
     this.options.onAuthFailed();
   }
 }
