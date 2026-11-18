@@ -15,6 +15,20 @@ async function start(hub: LoopbackHub, name: string, files: Record<string, strin
   return device;
 }
 
+/** Stops the device, changes its disk the way Finder or git would while the plugin is off, then starts it again. */
+async function restartAfter(hub: LoopbackHub, device: Device, change: (files: Map<string, string>) => void): Promise<Device> {
+  await device.engine.stop();
+  change(device.vault.files);
+  const restarted = await startDevice(hub, device.name, { reuse: device });
+  running.splice(running.indexOf(device), 1, restarted);
+  return restarted;
+}
+
+function moveOnDisk(files: Map<string, string>, from: string, to: string, text = files.get(from) ?? ""): void {
+  files.delete(from);
+  files.set(to, text);
+}
+
 function serverPaths(hub: LoopbackHub): string[] {
   const files = hub.serverDoc(buildIndexDocName(TEST_VAULT_ID)).getMap<Y.Map<unknown>>(INDEX_FILES_MAP_KEY);
   return [...files.values()].map((entry) => `${entry.get("path")}${entry.get("deleted") ? " (deleted)" : ""}`).sort();
@@ -106,5 +120,42 @@ describe("renames to names Windows cannot hold reported as delete + create (regr
     expect(filesOf(b)).toEqual({ "Misc/x.md": "x edited", "Misc/y.md": "y edited" });
     expect(serverPaths(hub)).toEqual(["Misc/x.md", "Misc/y.md"]);
     nothingTrashed([a, b]);
+  });
+});
+
+describe("renames made while the plugin was stopped", () => {
+  it.each(["a?.md", "a.md "])("holds a note renamed and edited to %j", async (unsafe) => {
+    const { hub, a, b } = await syncedPair({ "a.md": "body" });
+    const restarted = await restartAfter(hub, a, (files) => moveOnDisk(files, "a.md", unsafe, "edited"));
+    await settle([restarted, b]);
+    expect(filesOf(b)).toEqual({ "a.md": "edited" });
+    expect(serverPaths(hub)).toEqual(["a.md"]);
+    nothingTrashed([restarted, b]);
+  });
+
+  it.each(["fine.md", "a.md"])("moves a held note renamed and edited to %j, with no ghost or late delete", async (safe) => {
+    const { hub, a, b } = await syncedPair({ "a.md": "body" });
+    a.vault.externalRename("a.md", "a.md ");
+    await settle([a, b]);
+    const first = await restartAfter(hub, a, (files) => moveOnDisk(files, "a.md ", safe, "edited"));
+    await settle([first, b]);
+    expect(filesOf(b)).toEqual({ [safe]: "edited" });
+    expect(serverPaths(hub)).toEqual([safe]);
+
+    const second = await restartAfter(hub, first, () => {});
+    await settle([second, b]);
+    expect(filesOf(b)).toEqual({ [safe]: "edited" });
+    expect(filesOf(second)).toEqual({ [safe]: "edited" });
+    nothingTrashed([second, b]);
+  });
+
+  it("deletes a held note deleted while stopped on the first start, not one start later", async () => {
+    const { hub, a, b } = await syncedPair({ "a.md": "body" });
+    a.vault.externalRename("a.md", "a.md ");
+    await settle([a, b]);
+    const restarted = await restartAfter(hub, a, (files) => files.delete("a.md "));
+    await settle([restarted, b]);
+    expect(filesOf(b)).toEqual({});
+    expect(serverPaths(hub)).toEqual(["a.md (deleted)"]);
   });
 });
