@@ -1,6 +1,6 @@
 # quilleaf-be
 
-Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 동기화 서버와 Obsidian 플러그인(CRDT Sync)입니다 (Yjs + Hocuspocus).
+Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 동기화 서버와 Obsidian 플러그인(quilleaf Sync)입니다 (Yjs + Hocuspocus).
 같은 서버를 quilleaf 앱도 씁니다.
 
 - 설계: [docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md](docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md)
@@ -14,12 +14,12 @@ git clone https://github.com/dohyun06/quilleaf-be.git
 cd quilleaf-be
 npm install
 npm run check
-npm run build -w @obsidian-crdt/plugin
-npm run install-dev -w @obsidian-crdt/plugin -- "/path/to/test vault"
+npm run build -w @quilleaf/plugin
+npm run install-dev -w @quilleaf/plugin -- "/path/to/test vault"
 ```
 
-플러그인 ID는 `crdt-sync`이며 `<vault>/.obsidian/plugins/crdt-sync/`에 설치됩니다.
-설치 후 Obsidian에서 커뮤니티 플러그인 → CRDT Sync를 켜고 설정에서 서버 주소, 볼트 ID, 토큰을 입력합니다.
+플러그인 ID는 `quilleaf-sync`이며 `<vault>/.obsidian/plugins/quilleaf-sync/`에 설치됩니다.
+설치 후 Obsidian에서 커뮤니티 플러그인 → quilleaf Sync를 켜고 설정에서 서버 주소, 볼트 ID, 토큰을 입력합니다.
 토큰은 Obsidian 비밀 저장소에 보관되며 `data.json`에는 들어가지 않습니다.
 
 명령 팔레트에서 쓸 수 있는 명령:
