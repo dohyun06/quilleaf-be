@@ -113,9 +113,21 @@ export class IndexApplier {
       return;
     }
     if ((await this.deps.vault.read(entry.path)) !== null) return this.adoptExisting(entry);
-    const text = opened.text.toString();
+    if (!(await this.createRecordAndFile(entry, opened.text.toString()))) await this.adoptExisting(entry);
+  }
+
+  /**
+   * The record comes first, so the resulting create event is recognised; a failed write (a name this file system
+   * rejects) removes it, or the next startup scan would read the missing file as a delete and delete it everywhere.
+   */
+  private async createRecordAndFile(entry: IndexEntry, text: string): Promise<boolean> {
     await this.deps.records.set(entry.fileId, { path: entry.path, base: text });
-    if (!(await this.deps.vault.replace(entry.path, null, text))) await this.adoptExisting(entry);
+    try {
+      return await this.deps.vault.replace(entry.path, null, text);
+    } catch (error) {
+      await this.deps.records.delete(entry.fileId);
+      throw error;
+    }
   }
 
   private passWhenSynced(fileId: string, synced: Promise<void>): void {

@@ -60,6 +60,25 @@ describe("startup scan and bootstrap", () => {
     expect(b.vault.files.has("cfg/a.md")).toBe(false);
   });
 
+  it("does not delete a note everywhere after this device failed to create it (regression: Windows-invalid name)", async () => {
+    const hub = new LoopbackHub();
+    const a = await start(hub, "A", { "what?.md": "from a Mac" });
+    await settle([a]);
+    const b = createDevice(hub, "B");
+    const replace = b.vault.replace.bind(b.vault);
+    b.vault.replace = async (path, expected, next) => {
+      if (path.includes("?")) throw new Error("ENOENT: invalid file name"); // what Windows does with "?"
+      return replace(path, expected, next);
+    };
+    running.push(b);
+    await b.engine.start();
+    await settle([a, b]);
+    const restarted = await restartDevice(hub, b);
+    running.splice(running.indexOf(b), 1, restarted);
+    await settle([a, restarted]);
+    expect(a.vault.files.get("what?.md")).toBe("from a Mac");
+  });
+
   it("waits for the server on the very first start", async () => {
     const hub = new LoopbackHub();
     const device = createDevice(hub, "A", { online: false });
