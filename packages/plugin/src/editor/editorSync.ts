@@ -36,6 +36,7 @@ const untrackedUpdates = new WeakSet<EditorView>();
 /** Placed before ySync, which writes each editor update into the Y.Text while the update runs. */
 const markUntracked = ViewPlugin.define((view) => ({
   update(update) {
+    // `every`, not `some`: ySync writes one update as one change, so a mix with a user edit must stay undoable
     const untracked = update.transactions.length > 0 && update.transactions.every((tr) => tr.annotation(Transaction.addToHistory) === false);
     if (untracked) untrackedUpdates.add(view);
     else untrackedUpdates.delete(view);
