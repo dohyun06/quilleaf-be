@@ -1,4 +1,4 @@
-import { isWithinSizeLimit } from "@obsidian-crdt/shared";
+import { isWithinSizeLimit } from "@quilleaf/shared";
 import { buildConflictPath, withCounter } from "./conflictPath";
 import { DISK_ORIGIN, type DocManager, type OpenedDoc } from "./docManager";
 import type { SyncNotice } from "./notices";

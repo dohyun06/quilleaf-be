@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildFileDocName, isWindowsSafePath } from "@obsidian-crdt/shared";
+import { buildFileDocName, isWindowsSafePath } from "@quilleaf/shared";
 import { UnwritablePathError } from "../src/obsidian/vaultAdapter";
 import { createDevice, type Device, settle, startDevice, TEST_VAULT_ID } from "./fakes/device";
 import { LoopbackHub } from "./fakes/loopback";

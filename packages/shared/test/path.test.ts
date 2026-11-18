@@ -8,7 +8,7 @@ import {
   MAX_SYNC_FILE_BYTES,
   normalizeVaultPath,
   utf8ByteLength,
-} from "@obsidian-crdt/shared";
+} from "@quilleaf/shared";
 
 describe("vault paths", () => {
   it("unifies separators and strips leading ./ and /", () => {

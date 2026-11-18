@@ -1,5 +1,5 @@
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
-import { RECONNECT_MAX_DELAY_MS } from "@obsidian-crdt/shared";
+import { RECONNECT_MAX_DELAY_MS } from "@quilleaf/shared";
 import type * as Y from "yjs";
 import type { DocSyncer, DocSyncHandle } from "./ports";
 import { assertSecureServerUrl } from "./serverUrl";

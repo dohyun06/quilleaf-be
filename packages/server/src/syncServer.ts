@@ -1,6 +1,6 @@
 import { Database } from "@hocuspocus/extension-database";
 import { Server } from "@hocuspocus/server";
-import { MAX_WS_PAYLOAD_BYTES } from "@obsidian-crdt/shared";
+import { MAX_WS_PAYLOAD_BYTES } from "@quilleaf/shared";
 import { AuthorizationError, authorize, type ConnectionContext } from "./authorize";
 import type { DocumentStore } from "./documentStore";
 import type { Logger } from "./logger";

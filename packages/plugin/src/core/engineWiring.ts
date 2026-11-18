@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { buildIndexDocName, isSyncablePath } from "@obsidian-crdt/shared";
+import { buildIndexDocName, isSyncablePath } from "@quilleaf/shared";
 import { DocManager } from "./docManager";
 import { EchoTrackingVault } from "./echoTrackingVault";
 import { FileReconciler } from "./fileReconciler";

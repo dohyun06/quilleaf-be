@@ -1,7 +1,7 @@
 import { copyFile, mkdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-const PLUGIN_ID = "crdt-sync";
+const PLUGIN_ID = "quilleaf-sync";
 const FILES = ["main.js", "manifest.json", "styles.css"];
 // npm runs workspace scripts inside the package folder; INIT_CWD is where the user typed the command.
 const USER_CWD = process.env.INIT_CWD ?? process.cwd();
@@ -13,7 +13,7 @@ function option(name, fallback) {
 
 const vaultArg = process.argv[2];
 if (!vaultArg || vaultArg.startsWith("--")) {
-  console.error("usage: npm run install-dev -w @obsidian-crdt/plugin -- <vault path> [--config-dir .obsidian] [--dist dist]");
+  console.error("usage: npm run install-dev -w @quilleaf/plugin -- <vault path> [--config-dir .obsidian] [--dist dist]");
   process.exit(2);
 }
 const vault = resolve(USER_CWD, vaultArg);

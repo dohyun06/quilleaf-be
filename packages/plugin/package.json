@@ -1,5 +1,5 @@
 {
-  "name": "@obsidian-crdt/plugin",
+  "name": "@quilleaf/plugin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "^4.7.0",
-    "@obsidian-crdt/shared": "*",
+    "@quilleaf/shared": "*",
     "diff-match-patch": "^1.0.5",
     "y-codemirror.next": "^0.3.6",
     "y-protocols": "^1.0.7",
@@ -19,7 +19,7 @@
   "devDependencies": {
     "@codemirror/state": "6.5.0",
     "@codemirror/view": "6.38.6",
-    "@obsidian-crdt/server": "*",
+    "@quilleaf/server": "*",
     "@types/diff-match-patch": "^1.0.36",
     "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.5",

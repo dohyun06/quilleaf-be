@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { isValidVaultId } from "@obsidian-crdt/shared";
+import { isValidVaultId } from "@quilleaf/shared";
 
 const TOKEN_BYTES = 32;
 

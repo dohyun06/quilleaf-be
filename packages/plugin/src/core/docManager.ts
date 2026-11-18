@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { buildFileDocName, CONTENT_TEXT_KEY } from "@obsidian-crdt/shared";
+import { buildFileDocName, CONTENT_TEXT_KEY } from "@quilleaf/shared";
 import type { DocPersistence, DocSyncer, DocSyncHandle, PersistedDoc } from "./ports";
 
 /** Origin for Y.Text edits that came from the disk; they must not be written back to disk. */

@@ -6,12 +6,12 @@ export class StatusBar {
     private readonly el: HTMLElement,
     onClick: () => void,
   ) {
-    el.addClass("crdt-sync-status");
+    el.addClass("quilleaf-sync-status");
     el.addEventListener("click", onClick);
     this.render("stopped");
   }
 
   render(status: SyncStatus): void {
-    this.el.setText(`CRDT: ${statusLabel(status)}`);
+    this.el.setText(`quilleaf: ${statusLabel(status)}`);
   }
 }

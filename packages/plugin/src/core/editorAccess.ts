@@ -1,6 +1,6 @@
 import type { Awareness } from "y-protocols/awareness";
 import type * as Y from "yjs";
-import { normalizeVaultPath } from "@obsidian-crdt/shared";
+import { normalizeVaultPath } from "@quilleaf/shared";
 import type { Wiring } from "./engineWiring";
 import type { KeyedDebouncer } from "./scheduling";
 

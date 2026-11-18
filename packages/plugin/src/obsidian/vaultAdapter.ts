@@ -1,4 +1,4 @@
-import { isWindowsSafePath } from "@obsidian-crdt/shared";
+import { isWindowsSafePath } from "@quilleaf/shared";
 import type { VaultEvent, VaultPort } from "../core/ports";
 
 export interface ObsidianFileLike {

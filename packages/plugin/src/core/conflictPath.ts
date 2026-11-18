@@ -1,4 +1,4 @@
-import { SYNCABLE_EXTENSION } from "@obsidian-crdt/shared";
+import { SYNCABLE_EXTENSION } from "@quilleaf/shared";
 
 export type ConflictLabel = "conflict" | "conflict-disk";
 

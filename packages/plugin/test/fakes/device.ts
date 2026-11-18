@@ -1,4 +1,4 @@
-import { buildFileDocName, CONTENT_TEXT_KEY } from "@obsidian-crdt/shared";
+import { buildFileDocName, CONTENT_TEXT_KEY } from "@quilleaf/shared";
 import type * as Y from "yjs";
 import type { SyncNotice } from "../../src/core/notices";
 import { SyncEngine, type SyncTiming } from "../../src/core/syncEngine";

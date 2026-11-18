@@ -14,7 +14,7 @@ describe("install-dev script", () => {
     const vault = mkdtempSync(join(tmpdir(), "crdt-vault-"));
     mkdirSync(join(vault, ".obsidian"));
     execFileSync("node", ["scripts/install-dev.mjs", vault, "--dist", dist], { cwd: PLUGIN_DIR });
-    for (const name of ["main.js", "manifest.json", "styles.css"]) expect(existsSync(join(vault, ".obsidian/plugins/crdt-sync", name))).toBe(true);
+    for (const name of ["main.js", "manifest.json", "styles.css"]) expect(existsSync(join(vault, ".obsidian/plugins/quilleaf-sync", name))).toBe(true);
   });
 
   it("refuses a folder that is not an Obsidian vault", () => {

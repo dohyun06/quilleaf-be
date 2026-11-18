@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { buildFileDocName, buildIndexDocName, CONTENT_TEXT_KEY, INDEX_FILES_MAP_KEY } from "@obsidian-crdt/shared";
+import { buildFileDocName, buildIndexDocName, CONTENT_TEXT_KEY, INDEX_FILES_MAP_KEY } from "@quilleaf/shared";
 import { TEST_VAULT_ID } from "./device";
 import type { LoopbackHub } from "./loopback";
 

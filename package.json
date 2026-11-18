@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-crdt",
+  "name": "quilleaf-be",
   "private": true,
   "type": "module",
   "workspaces": ["packages/*"],

@@ -1,4 +1,4 @@
-import { foldPathCase } from "@obsidian-crdt/shared";
+import { foldPathCase } from "@quilleaf/shared";
 import type { ObsidianFileLike, ObsidianVaultLike, VaultEventRef } from "../../src/obsidian/vaultAdapter";
 
 class FakeFile implements ObsidianFileLike {

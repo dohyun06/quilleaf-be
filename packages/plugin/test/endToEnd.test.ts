@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 import { randomUUID } from "node:crypto";
-import { buildFileDocName, buildIndexDocName } from "@obsidian-crdt/shared";
-import { createJsonLogger, createSyncServer, DocumentStore, openDatabase, TokenStore } from "@obsidian-crdt/server";
+import { buildFileDocName, buildIndexDocName } from "@quilleaf/shared";
+import { createJsonLogger, createSyncServer, DocumentStore, openDatabase, TokenStore } from "@quilleaf/server";
 import { HocuspocusSyncer } from "../src/core/hocuspocusSyncer";
 import type { SyncNotice } from "../src/core/notices";
 import { EngineStoppedError, SyncEngine } from "../src/core/syncEngine";

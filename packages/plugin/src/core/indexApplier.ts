@@ -1,4 +1,4 @@
-import { foldPathCase, normalizeVaultPath } from "@obsidian-crdt/shared";
+import { foldPathCase, normalizeVaultPath } from "@quilleaf/shared";
 import type { DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
 import type { SyncNotice } from "./notices";

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDB_OPEN_TIMEOUT_MS, openSyncDatabase, runRequest, STORE_RECORDS, StorageUnavailableError } from "../src/obsidian/idb";
 import { IdbStorage } from "../src/obsidian/idbStorage";
 
-const DB = "crdt-sync/test-vault/test-vault-01";
+const DB = "quilleaf-sync/test-vault/test-vault-01";
 
 describe("IdbStorage", () => {
   it("saves, reloads and deletes records across connections", async () => {

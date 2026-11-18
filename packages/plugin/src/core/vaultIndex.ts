@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { foldPathCase, INDEX_FILES_MAP_KEY, isSafeRelativePath, isValidFileId } from "@obsidian-crdt/shared";
+import { foldPathCase, INDEX_FILES_MAP_KEY, isSafeRelativePath, isValidFileId } from "@quilleaf/shared";
 import { buildConflictPath } from "./conflictPath";
 
 export const INDEX_LOCAL_ORIGIN = Symbol("index-local");

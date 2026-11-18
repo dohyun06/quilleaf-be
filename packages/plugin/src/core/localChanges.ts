@@ -1,4 +1,4 @@
-import { isWithinSizeLimit } from "@obsidian-crdt/shared";
+import { isWithinSizeLimit } from "@quilleaf/shared";
 import { DISK_ORIGIN, type DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
 import type { MassDeleteGuard } from "./massDeleteGuard";

@@ -1,8 +1,8 @@
 import * as Y from "yjs";
 import { randomUUID } from "node:crypto";
 import type { Socket } from "node:net";
-import { buildFileDocName } from "@obsidian-crdt/shared";
-import { createJsonLogger, createSyncServer, DocumentStore, openDatabase, TokenStore } from "@obsidian-crdt/server";
+import { buildFileDocName } from "@quilleaf/shared";
+import { createJsonLogger, createSyncServer, DocumentStore, openDatabase, TokenStore } from "@quilleaf/server";
 import { HocuspocusSyncer } from "../../src/core/hocuspocusSyncer";
 import { TEST_VAULT_ID } from "./device";
 

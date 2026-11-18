@@ -1,5 +1,5 @@
 {
-  "name": "@obsidian-crdt/server",
+  "name": "@quilleaf/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   "dependencies": {
     "@hocuspocus/extension-database": "^4.7.0",
     "@hocuspocus/server": "^4.7.0",
-    "@obsidian-crdt/shared": "*",
+    "@quilleaf/shared": "*",
     "yjs": "^13.6.33"
   },
   "devDependencies": {

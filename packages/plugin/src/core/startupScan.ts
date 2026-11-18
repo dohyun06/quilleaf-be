@@ -1,4 +1,4 @@
-import { normalizeVaultPath } from "@obsidian-crdt/shared";
+import { normalizeVaultPath } from "@quilleaf/shared";
 import type { FileReconciler } from "./fileReconciler";
 import type { IndexApplier } from "./indexApplier";
 import type { LocalChangeHandler } from "./localChanges";
