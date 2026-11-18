@@ -11,9 +11,14 @@ describe("messages", () => {
       { kind: "file-too-large", path: "big.md" },
       { kind: "mass-delete-paused", paths: ["1.md", "2.md"] },
       { kind: "task-failed", message: "boom" },
+      { kind: "windows-unsafe-name", path: "what?.md", keptPath: null },
+      { kind: "windows-unsafe-name", path: "a?.md", keptPath: "a.md" },
     ];
     const texts = notices.map(noticeMessage);
     expect(new Set(texts).size).toBe(notices.length);
+    expect(texts[5]).toContain("what?.md");
+    expect(texts[6]).toContain("a?.md");
+    expect(texts[6]).toContain("a.md");
     expect(texts[1]).toContain("a (conflict-disk 2026-10-08 abcdef).md");
     expect(texts[2]).toContain("big.md");
     expect(texts[2]).toContain("2MB");

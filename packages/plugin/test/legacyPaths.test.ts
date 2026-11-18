@@ -76,18 +76,25 @@ describe("paths another client syncs but Windows cannot hold (mixed rollout)", (
     expect(other.entry(ID)).toEqual({ path: "notes./safe.md", deleted: true });
   });
 
-  it("moves a note within a trailing-dot folder between devices that can hold it, and deletes nothing on Windows", async () => {
+  it("keeps a legacy trailing-dot entry where it is when a device renames it within that folder, and follows a safe rename", async () => {
     const hub = new LoopbackHub();
-    const a = await start(hub, "A", { "Misc./a.md": "dotted folder" });
+    const other = new RawIndexClient(hub);
+    other.create(ID, "Misc./a.md", "dotted folder");
+    const a = await start(hub, "A");
     const b = await start(hub, "B");
     const w = await startWindows(hub);
     await settle([a, b, w]);
     expect(b.vault.files.get("Misc./a.md")).toBe("dotted folder");
     expect(w.vault.files.size).toBe(0);
 
-    b.vault.externalRename("Misc./a.md", "Misc./b.md");
+    b.vault.externalRename("Misc./a.md", "Misc./b.md"); // a local rename to a name Windows cannot hold is not synced
     await settle([a, b, w]);
-    expect(Object.fromEntries(a.vault.files)).toEqual({ "Misc./b.md": "dotted folder" });
+    expect(Object.fromEntries(a.vault.files)).toEqual({ "Misc./a.md": "dotted folder" });
+    expect(other.entry(ID)).toEqual({ path: "Misc./a.md", deleted: false });
+
+    b.vault.externalRename("Misc./b.md", "Misc/b.md");
+    await settle([a, b, w]);
+    for (const device of [a, b, w]) expect(Object.fromEntries(device.vault.files), device.name).toEqual({ "Misc/b.md": "dotted folder" });
     for (const device of [a, b, w]) expect(device.vault.trashed).toEqual([]);
     expect(w.notices.filter((notice) => notice.kind === "task-failed").length).toBeGreaterThan(0);
   });

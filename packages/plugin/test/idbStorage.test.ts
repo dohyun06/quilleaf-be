@@ -19,6 +19,16 @@ describe("IdbStorage", () => {
     second.close();
   });
 
+  it("keeps the index path of a note held under a name Windows cannot hold", async () => {
+    const factory = new IDBFactory();
+    const first = await openSyncDatabase(DB, factory);
+    await new IdbStorage(first).saveRecord("id-1", { path: "a?.md", base: "x", heldIndexPath: "a.md" });
+    first.close();
+    const second = await openSyncDatabase(DB, factory);
+    expect(await new IdbStorage(second).loadRecords()).toEqual([["id-1", { path: "a?.md", base: "x", heldIndexPath: "a.md" }]]);
+    second.close();
+  });
+
   it("stores flags", async () => {
     const db = await openSyncDatabase(DB, new IDBFactory());
     const storage = new IdbStorage(db);

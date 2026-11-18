@@ -13,6 +13,11 @@ export function noticeMessage(notice: SyncNotice): string {
       return `quilleaf Sync: ${notice.path}의 디스크 내용이 서버와 달라 ${notice.copyPath}에 따로 저장했습니다.`;
     case "file-too-large":
       return `quilleaf Sync: ${notice.path}은(는) ${MAX_SYNC_FILE_MB}MB를 넘어 동기화하지 않습니다.`;
+    case "windows-unsafe-name":
+      if (notice.keptPath === null) {
+        return `quilleaf Sync: ${notice.path}은(는) Windows에서 쓸 수 없는 이름이라 동기화하지 않습니다. 이름을 바꾸세요.`;
+      }
+      return `quilleaf Sync: ${notice.path}은(는) Windows에서 쓸 수 없는 이름이라 다른 기기에는 ${notice.keptPath}(으)로 남습니다. 내용은 계속 동기화되고, 이름을 바꾸면 그 이름이 동기화됩니다.`;
     case "mass-delete-paused": {
       const listed = notice.paths.slice(0, MAX_LISTED_PATHS).join(", ");
       return `quilleaf Sync: 파일 ${notice.paths.length}개가 한꺼번에 삭제되어 동기화를 멈췄습니다 (${listed}). 확인 창에서 선택하세요.`;

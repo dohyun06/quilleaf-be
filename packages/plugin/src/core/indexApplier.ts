@@ -81,6 +81,7 @@ export class IndexApplier {
   private async applyMove(entry: IndexEntry): Promise<MoveOutcome> {
     const record = this.deps.records.get(entry.fileId);
     if (!record || record.path === entry.path) return "none";
+    if (record.heldIndexPath === entry.path) return "none"; // this device's own rename that was not synced
     if (!this.deps.isEligible(entry.path)) return "none";
     if (await this.isTargetBusy(record.path, entry.path)) return "deferred"; // a later pass retries
     await this.moveRecordAndFile(entry.fileId, record, entry.path);

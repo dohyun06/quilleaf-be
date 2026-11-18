@@ -1,4 +1,4 @@
-import { isWithinSizeLimit } from "@quilleaf/shared";
+import { isWindowsSafePath, isWithinSizeLimit } from "@quilleaf/shared";
 import { DISK_ORIGIN, type DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
 import type { MassDeleteGuard } from "./massDeleteGuard";
@@ -32,6 +32,7 @@ export class LocalChangeHandler {
   private readonly pendingDeletes = new Map<string, PendingDelete>();
   private pausedDeletes: PendingDelete[] = [];
   private readonly oversizeNotified = new Set<string>();
+  private readonly unsafeNameNotified = new Set<string>();
 
   constructor(private readonly deps: LocalChangeDeps) {}
 
@@ -45,17 +46,11 @@ export class LocalChangeHandler {
     // the same-path rule (spec §4.4) settles the collision on every device.
     if (live && !this.deps.records.get(live.fileId)) return this.adoptRemoteEntry(live.fileId, path);
     const text = await this.deps.vault.read(path);
-    if (text === null) return;
-    if (!isWithinSizeLimit(text)) {
-      if (!this.oversizeNotified.has(path)) {
-        this.oversizeNotified.add(path);
-        this.deps.notify({ kind: "file-too-large", path });
-      }
-      return;
-    }
-    this.oversizeNotified.delete(path);
+    if (text === null || !this.fitsSizeLimit(path, text)) return;
+    // A synced note renamed as delete + create: moveTracked holds a name Windows cannot hold instead of dropping it.
     const renamed = this.takePendingDeleteWithBase(text);
     if (renamed) return this.moveTracked(renamed.fileId, path);
+    if (!isWindowsSafePath(path)) return this.notifyUnsafeName(path, null);
     await this.registerNew(path, text);
   }
 
@@ -126,8 +121,16 @@ export class LocalChangeHandler {
 
   private async moveTracked(fileId: string, newPath: string): Promise<void> {
     const record = this.deps.records.get(fileId);
-    this.deps.index.rename(fileId, newPath);
-    await this.deps.records.set(fileId, { path: newPath, base: record?.base ?? null });
+    const base = record?.base ?? null;
+    if (isWindowsSafePath(newPath)) {
+      this.deps.index.rename(fileId, newPath);
+      await this.deps.records.set(fileId, { path: newPath, base });
+    } else {
+      // Other devices keep the note at its index path (a Windows device could not follow); this file keeps syncing.
+      const heldIndexPath = this.deps.index.get(fileId)?.path ?? record?.path ?? newPath;
+      await this.deps.records.set(fileId, { path: newPath, base, heldIndexPath });
+      this.notifyUnsafeName(newPath, heldIndexPath);
+    }
     // A renamed open note keeps its editor: the disk may hold a lagging autosave that must not be merged again.
     await this.reconcileUnlessOpen(fileId, newPath);
   }
@@ -136,6 +139,26 @@ export class LocalChangeHandler {
   private reconcileUnlessOpen(fileId: string, path: string): Promise<void> {
     if (this.deps.isOpenInEditor(fileId, path)) return this.deps.reconciler.acceptEditorSave(fileId);
     return this.deps.reconciler.reconcile(fileId);
+  }
+
+  /** Spec §5: oversize files are not synced; one notice per path until it fits again. */
+  private fitsSizeLimit(path: string, text: string): boolean {
+    if (isWithinSizeLimit(text)) {
+      this.oversizeNotified.delete(path);
+      return true;
+    }
+    if (!this.oversizeNotified.has(path)) {
+      this.oversizeNotified.add(path);
+      this.deps.notify({ kind: "file-too-large", path });
+    }
+    return false;
+  }
+
+  /** Once per path per session: the startup scan and every edit would otherwise repeat it. */
+  private notifyUnsafeName(path: string, keptPath: string | null): void {
+    if (this.unsafeNameNotified.has(path)) return;
+    this.unsafeNameNotified.add(path);
+    this.deps.notify({ kind: "windows-unsafe-name", path, keptPath });
   }
 
   private async registerNew(path: string, text: string): Promise<void> {
