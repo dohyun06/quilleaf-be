@@ -1,6 +1,6 @@
-import { Compartment, EditorState, Prec, StateEffect, StateField, type Extension, type Transaction } from "@codemirror/state";
-import { type EditorView, keymap } from "@codemirror/view";
-import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
+import { Compartment, EditorState, Prec, StateEffect, StateField, Transaction, type Extension } from "@codemirror/state";
+import { type EditorView, keymap, ViewPlugin } from "@codemirror/view";
+import { yCollab, YSyncConfig, yUndoManagerKeymap } from "y-codemirror.next";
 import type { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { diffByCodePoint } from "../core/textDiff";
@@ -31,6 +31,16 @@ const boundPathField = StateField.define<string | null>({
   },
 });
 const undoManagers = new WeakMap<EditorView, Y.UndoManager>();
+/** Views whose current update holds only changes CodeMirror keeps out of undo (the app's own edits). */
+const untrackedUpdates = new WeakSet<EditorView>();
+/** Placed before ySync, which writes each editor update into the Y.Text while the update runs. */
+const markUntracked = ViewPlugin.define((view) => ({
+  update(update) {
+    const untracked = update.transactions.length > 0 && update.transactions.every((tr) => tr.annotation(Transaction.addToHistory) === false);
+    if (untracked) untrackedUpdates.add(view);
+    else untrackedUpdates.delete(view);
+  },
+}));
 const boundAwareness = new WeakMap<EditorView, Awareness>();
 /** How many bound views share one awareness (several panes can show the same file). */
 const awarenessViews = new WeakMap<Awareness, number>();
@@ -79,14 +89,17 @@ export function attachSync(view: EditorView, target: SyncTarget): void {
   // CodeMirror reuses a ViewPlugin instance across reconfigures (it keeps the old Y.Text), so unbind first.
   detachSync(view);
   if (target.awareness) claimPresence(view, target.awareness, target.user);
-  const undoManager = new Y.UndoManager(target.text);
+  // ySync writes every editor change with one tracked origin; addToHistory: false keeps a change out of undo here too
+  const undoManager = new Y.UndoManager(target.text, {
+    captureTransaction: (tr) => !(tr.origin instanceof YSyncConfig && untrackedUpdates.has(view)),
+  });
   undoManagers.set(view, undoManager);
   // One transaction: align the editor to the Y.Text and install yCollab together, so the alignment is not
   // replayed into the Y.Text and no remote update can land in between.
   view.dispatch({
     changes: alignmentChanges(view.state.doc.toString(), target.text.toString()),
     effects: [
-      syncCompartment.reconfigure([yCollab(target.text, target.awareness, { undoManager }), Prec.highest(keymap.of(yUndoManagerKeymap))]),
+      syncCompartment.reconfigure([markUntracked, yCollab(target.text, target.awareness, { undoManager }), Prec.highest(keymap.of(yUndoManagerKeymap))]),
       setBoundPath.of(target.path),
     ],
   });

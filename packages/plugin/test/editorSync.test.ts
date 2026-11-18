@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { EditorState } from "@codemirror/state";
+import { EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { yUndoManagerKeymap } from "y-codemirror.next";
 import { Awareness } from "y-protocols/awareness";
@@ -153,6 +153,21 @@ describe("editorSync", () => {
     expect(awareness.getLocalState()?.user).toEqual(USER);
     detachSync(second);
     expect(awareness.getLocalState()).toBeNull();
+  });
+
+  it("undoes the user's typing but not edits kept out of history (regression: another plugin's write on Ctrl+Z)", () => {
+    const text = yText("hello");
+    const view = editor("hello", { path: "a.md" });
+    attachSync(view, { path: "a.md", text, awareness: null, user: USER });
+    const undo = yUndoManagerKeymap.find((binding) => binding.key === "Mod-z")!.run!;
+    type(view, 5, "!");
+    // e.g. a task toggle or another plugin's write through the editor
+    view.dispatch({ changes: { from: 6, insert: " (done)" }, annotations: Transaction.addToHistory.of(false) });
+    expect(text.toString()).toBe("hello! (done)");
+    undo(view);
+    expect(text.toString()).toBe("hello (done)");
+    undo(view); // nothing of the untracked edit is on the stack
+    expect(text.toString()).toBe("hello (done)");
   });
 
   it("drops the binding when setState switches files", () => {
