@@ -24,7 +24,8 @@ export class StartupScan {
     const diskPaths = (await this.deps.vault.listFiles()).map(normalizeVaultPath).filter(this.deps.isEligible);
     const onDisk = new Set(diskPaths);
     for (const [, record] of this.deps.records.entries()) {
-      if (!onDisk.has(record.path)) this.deps.local.handleDelete(record.path);
+      // a path this device does not sync is missing from the filtered list, not deleted
+      if (!onDisk.has(record.path) && this.deps.isEligible(record.path)) this.deps.local.handleDelete(record.path);
     }
     for (const path of diskPaths) await this.scanPath(path);
     await this.guarded(() => this.deps.applier.apply());

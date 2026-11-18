@@ -40,6 +40,7 @@ export interface DeviceOptions {
   files?: Record<string, string>;
   online?: boolean;
   reuse?: Device;
+  excludedPrefixes?: readonly string[];
 }
 
 export function createDevice(hub: LoopbackHub, name: string, options: DeviceOptions = {}): Device {
@@ -57,6 +58,7 @@ export function createDevice(hub: LoopbackHub, name: string, options: DeviceOpti
     syncer,
     persistence,
     isOpenInEditor: (path) => openInEditor.has(path),
+    excludedPrefixes: options.excludedPrefixes,
     now: () => FIXED_NOW,
     notify: (notice) => notices.push(notice),
     timing: FAST_TIMING,
