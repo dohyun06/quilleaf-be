@@ -19,14 +19,23 @@ export function isSafeRelativePath(path: string): boolean {
   return path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
-/** Windows reads `\` as a separator and `:` as a drive or stream marker, and drops trailing dots and spaces (`.. ` is `..`). */
-const WINDOWS_UNSAFE_CHARACTER = /[\\:]/;
+/**
+ * Characters Windows refuses in a name (`\` it also reads as a separator, `:` as a drive or stream marker) and
+ * control characters. `/` is the vault separator, so it never appears inside a segment.
+ */
+const WINDOWS_UNSAFE_CHARACTER = /[<>:"\\|?*\u0000-\u001f]/;
+/** Windows drops trailing dots and spaces (`.. ` is `..`). */
 const TRAILING_DOT_OR_SPACE = /[. ]$/;
+/** Device names Windows reserves in every folder, with or without an extension (`CON.md`, `nul.tar.md`). */
+const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
 
-/** Whether Windows writes the path as the same file, inside the vault; a Windows device checks it before every write. */
+/**
+ * Whether Windows writes the path as the same file, inside the vault. Every device checks it before a local create or
+ * rename enters sync, and a Windows device also before every write of a name another client synced.
+ */
 export function isWindowsSafePath(path: string): boolean {
   if (WINDOWS_UNSAFE_CHARACTER.test(path)) return false;
-  return path.split("/").every((segment) => !TRAILING_DOT_OR_SPACE.test(segment));
+  return path.split("/").every((segment) => !TRAILING_DOT_OR_SPACE.test(segment) && !WINDOWS_RESERVED_NAME.test(segment));
 }
 
 /**

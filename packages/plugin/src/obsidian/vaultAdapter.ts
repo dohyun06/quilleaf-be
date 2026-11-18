@@ -41,7 +41,7 @@ export class UnwritablePathError extends Error {
 }
 
 export interface VaultAdapterOptions {
-  /** Windows file systems: names with `\`, `:` or a trailing dot or space are refused (see isWindowsSafePath). */
+  /** Windows file systems: names Windows cannot hold are refused (see isWindowsSafePath). */
   windows: boolean;
 }
 

@@ -72,7 +72,7 @@ describe("ObsidianVaultAdapter", () => {
     const vault = new FakeObsidianVault();
     const adapter = new ObsidianVaultAdapter(vault, { windows: true });
     vault.seed("a.md", "A");
-    for (const path of ["..\\..\\outside.md", "C:outside.md", ".. /outside.md", "Misc./a.md", "a.md:stream"]) {
+    for (const path of ["..\\..\\outside.md", "C:outside.md", ".. /outside.md", "Misc./a.md", "a.md:stream", "what?.md", "CON.md"]) {
       await expect(adapter.replace(path, null, "x"), path).rejects.toBeInstanceOf(UnwritablePathError);
       await expect(adapter.rename("a.md", path), path).rejects.toBeInstanceOf(UnwritablePathError);
     }

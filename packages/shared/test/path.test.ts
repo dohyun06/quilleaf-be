@@ -50,6 +50,16 @@ describe("vault paths", () => {
     for (const path of bad) expect(isWindowsSafePath(path), path).toBe(false);
   });
 
+  it("flags Windows reserved characters, control characters and device names in any segment", () => {
+    const bad = ["what?.md", "a<b.md", "a>b.md", 'say "hi".md', "a|b.md", "a*.md", "a\u0001b.md", "tab\there.md", "CON.md", "con", "notes/Aux.md", "NUL.tar.md", "COM1.md", "lpt9/a.md", "prn.MD"];
+    for (const path of bad) expect(isWindowsSafePath(path), path).toBe(false);
+  });
+
+  it("accepts names that only contain a device name", () => {
+    const good = ["CONsole.md", "my con.md", "COM0.md", "COM10.md", "lpt.md", "notes/nullable.md", "a-con.md"];
+    for (const path of good) expect(isWindowsSafePath(path), path).toBe(true);
+  });
+
   it("accepts names that only look close to the Windows rules", () => {
     const good = [".hidden.md", " leading space.md", "a b.md", "a.b.md", "notes.d/a.md", "a. .md", "한글.md", "x/.config/y.md"];
     for (const path of good) expect(isWindowsSafePath(path), path).toBe(true);
