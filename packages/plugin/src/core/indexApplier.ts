@@ -1,6 +1,7 @@
 import { foldPathCase, normalizeVaultPath } from "@obsidian-crdt/shared";
 import type { DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
+import type { SyncNotice } from "./notices";
 import type { VaultPort } from "./ports";
 import type { FileRecord } from "./ports";
 import type { RecordStore } from "./recordStore";
@@ -13,6 +14,7 @@ export interface IndexApplierDeps {
   docs: DocManager;
   reconciler: FileReconciler;
   isEligible: (path: string) => boolean;
+  notify: (notice: SyncNotice) => void;
   /** Called when more work is possible (a document became synced, a move was unblocked), so another pass runs. */
   requestPass: () => void;
 }
@@ -22,6 +24,8 @@ type MoveOutcome = "moved" | "deferred" | "none";
 /** Makes this device's disk match the index: deletions, then moves, then creations (spec §4.4). */
 export class IndexApplier {
   private readonly awaitingSync = new Set<string>();
+  /** Entries already reported as failed this session (fileId and path), so each pass does not repeat the notice. */
+  private readonly reportedFailures = new Set<string>();
 
   constructor(private readonly deps: IndexApplierDeps) {}
 
@@ -29,9 +33,27 @@ export class IndexApplier {
     const plan = this.deps.index.planCollisionResolution();
     if (plan.length > 0) this.deps.index.applyReassignments(plan);
     const entries = this.deps.index.entries();
-    for (const entry of entries) if (entry.deleted) await this.applyDeletion(entry);
+    for (const entry of entries) if (entry.deleted) await this.isolated(entry, () => this.applyDeletion(entry));
     await this.applyMoves(entries.filter((entry) => !entry.deleted));
-    for (const entry of entries) if (!entry.deleted) await this.applyCreation(entry);
+    for (const entry of entries) if (!entry.deleted) await this.isolated(entry, () => this.applyCreation(entry));
+  }
+
+  /** Boundary: an entry this device cannot apply (a name its file system rejects) must not block the others. */
+  private async isolated<T>(entry: IndexEntry, task: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await task();
+    } catch (error) {
+      this.reportFailure(entry, error);
+      return undefined;
+    }
+  }
+
+  private reportFailure(entry: IndexEntry, error: unknown): void {
+    const key = `${entry.fileId}/${entry.path}`;
+    if (this.reportedFailures.has(key)) return;
+    this.reportedFailures.add(key);
+    const reason = error instanceof Error ? error.message : String(error);
+    this.deps.notify({ kind: "task-failed", message: `${entry.path}: ${reason}` });
   }
 
   private async applyDeletion(entry: IndexEntry): Promise<void> {
@@ -46,14 +68,14 @@ export class IndexApplier {
     const deferred: IndexEntry[] = [];
     let moved = false;
     for (const entry of entries) {
-      const outcome = await this.applyMove(entry);
+      const outcome = await this.isolated(entry, () => this.applyMove(entry));
       if (outcome === "moved") moved = true;
       if (outcome === "deferred") deferred.push(entry);
     }
     if (deferred.length === 0) return;
     if (moved) return this.deps.requestPass();
     const blocked = deferred.find((entry) => this.occupantMustMove(entry));
-    if (blocked) await this.moveAside(blocked);
+    if (blocked) await this.isolated(blocked, () => this.moveAside(blocked));
   }
 
   private async applyMove(entry: IndexEntry): Promise<MoveOutcome> {

@@ -65,7 +65,7 @@ export async function createWiring(inputs: WiringInputs, hooks: WiringHooks): Pr
   const reconciler = new FileReconciler({ vault, records, docs, now, notify, history, requestRetry: hooks.requestRetry });
   const guard = new MassDeleteGuard({ ...hooks.massDelete, now });
   const local = new LocalChangeHandler({ vault, index, records, docs, reconciler, guard, now, notify, isEligible, isOpenInEditor });
-  const applier = new IndexApplier({ vault, index, records, docs, reconciler, isEligible, requestPass: hooks.requestPass });
+  const applier = new IndexApplier({ vault, index, records, docs, reconciler, isEligible, notify, requestPass: hooks.requestPass });
   const scan = new StartupScan({ vault, records, reconciler, local, applier, isEligible, notify });
   return { records, docs, index, indexSync, indexPersisted, indexDoc, reconciler, local, applier, echoes, scan, history };
 }
