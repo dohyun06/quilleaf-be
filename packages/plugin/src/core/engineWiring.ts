@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { buildIndexDocName, isSyncablePath } from "@quilleaf/shared";
+import { buildIndexDocName, isSyncablePath, isWindowsSafePath, windowsLookalikePath } from "@quilleaf/shared";
 import { DocManager } from "./docManager";
 import { EchoTrackingVault } from "./echoTrackingVault";
 import { FileReconciler } from "./fileReconciler";
@@ -61,11 +61,17 @@ export async function createWiring(inputs: WiringInputs, hooks: WiringHooks): Pr
   const index = new VaultIndex(indexDoc);
   const history = new TextHistory();
   const isEligible = (path: string) => isSyncablePath(path, inputs.excludedPrefixes);
+  // Local files under a name Windows cannot hold (`a.md `, `C:/a.md`) stay in view, so a synced note renamed to one
+  // is held at its index path instead of deleted everywhere; index entries still pass isEligible alone.
+  const isLocallyEligible = (path: string) =>
+    isEligible(path) || (!isWindowsSafePath(path) && isEligible(windowsLookalikePath(path)));
   const { now, notify, isOpenInEditor } = hooks;
   const reconciler = new FileReconciler({ vault, records, docs, now, notify, history, requestRetry: hooks.requestRetry });
   const guard = new MassDeleteGuard({ ...hooks.massDelete, now });
-  const local = new LocalChangeHandler({ vault, index, records, docs, reconciler, guard, now, notify, isEligible, isOpenInEditor });
+  const local = new LocalChangeHandler({
+    vault, index, records, docs, reconciler, guard, now, notify, isOpenInEditor, isEligible: isLocallyEligible,
+  });
   const applier = new IndexApplier({ vault, index, records, docs, reconciler, isEligible, notify, requestPass: hooks.requestPass });
-  const scan = new StartupScan({ vault, records, reconciler, local, applier, isEligible, notify });
+  const scan = new StartupScan({ vault, records, reconciler, local, applier, isEligible: isLocallyEligible, notify });
   return { records, docs, index, indexSync, indexPersisted, indexDoc, reconciler, local, applier, echoes, scan, history };
 }

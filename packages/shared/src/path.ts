@@ -38,6 +38,21 @@ export function isWindowsSafePath(path: string): boolean {
   return path.split("/").every((segment) => !TRAILING_DOT_OR_SPACE.test(segment) && !WINDOWS_RESERVED_NAME.test(segment));
 }
 
+const WINDOWS_UNSAFE_CHARACTERS = new RegExp(WINDOWS_UNSAFE_CHARACTER.source, "g");
+const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
+
+/**
+ * A stand-in for a name Windows cannot hold: unsafe characters as `_`, trailing dots and spaces dropped (`C:/a.md ` →
+ * `C_/a.md`). Only for asking whether the name is excluded from sync for another reason (not .md, a hidden folder).
+ */
+export function windowsLookalikePath(path: string): string {
+  return path
+    .replace(WINDOWS_UNSAFE_CHARACTERS, "_")
+    .split("/")
+    .map((segment) => segment.replace(TRAILING_DOTS_AND_SPACES, ""))
+    .join("/");
+}
+
 /**
  * Comparison key only (stored paths stay unnormalized, spec §3.4): case-insensitive file systems (macOS, iOS,
  * Windows) treat paths differing in letter case, and on APFS in NFC/NFD form, as the same file.
