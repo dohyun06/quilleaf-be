@@ -1,17 +1,21 @@
 import { EXCLUDED_PATH_PREFIXES, MAX_SYNC_FILE_BYTES, SYNCABLE_EXTENSION } from "./constants";
 
 const LEADING_SEPARATORS = /^(?:\.\/|\/)+/;
-const WINDOWS_DRIVE = /^[a-zA-Z]:/;
 
 /** Unifies separators only. Unicode normalization is intentionally left alone (spec §3.4). */
 export function normalizeVaultPath(raw: string): string {
   return raw.replace(/\\/g, "/").replace(LEADING_SEPARATORS, "");
 }
 
+/** Windows reads `\` as a separator and `:` as a drive or stream marker, and drops trailing dots and spaces (`.. ` is `..`). */
+const WINDOWS_UNSAFE_CHARACTER = /[\\:]/;
+const TRAILING_DOT_OR_SPACE = /[. ]$/;
+
+/** Index paths from other devices reach disk writes; any device's file system must read them as the same file. */
 export function isSafeRelativePath(path: string): boolean {
   if (path.length === 0 || path.includes("\0")) return false;
-  if (path.startsWith("/") || WINDOWS_DRIVE.test(path)) return false;
-  return path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+  if (path.startsWith("/") || WINDOWS_UNSAFE_CHARACTER.test(path)) return false;
+  return path.split("/").every((segment) => segment !== "" && !TRAILING_DOT_OR_SPACE.test(segment));
 }
 
 /**

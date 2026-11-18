@@ -27,6 +27,29 @@ describe("vault paths", () => {
     expect(isSafeRelativePath("notes/a.md")).toBe(true);
   });
 
+  it("rejects names Windows cannot hold or resolves elsewhere: backslash, colon, trailing dot or space", () => {
+    const bad = [
+      "a\\b.md",
+      "..\\..\\outside.md",
+      "a:b.md",
+      "a.md:stream",
+      "notes:/a.md",
+      "a.md.",
+      "a.md ",
+      "notes./a.md",
+      "notes /a.md",
+      ".. /a.md",
+      "...",
+      "a/b.md\t ",
+    ];
+    for (const path of bad) expect(isSafeRelativePath(path), path).toBe(false);
+  });
+
+  it("keeps names that only look close to the Windows rules", () => {
+    const good = [".hidden.md", " leading space.md", "a b.md", "a.b.md", "notes.d/a.md", "a. .md", "한글.md", "x/.config/y.md"];
+    for (const path of good) expect(isSafeRelativePath(path), path).toBe(true);
+  });
+
   it("syncs markdown outside excluded folders only", () => {
     expect(isSyncablePath("notes/a.md")).toBe(true);
     expect(isSyncablePath("notes/A.MD")).toBe(true);
