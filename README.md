@@ -1,6 +1,7 @@
-# Obsidian CRDT Sync
+# quilleaf-be
 
-Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 플러그인입니다 (Yjs + Hocuspocus).
+Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 동기화 서버와 Obsidian 플러그인(quilleaf Sync)입니다 (Yjs + Hocuspocus).
+같은 서버를 quilleaf 앱도 씁니다.
 
 - 설계: [docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md](docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md)
 - 서버 배포: [deploy/README.md](deploy/README.md)
@@ -9,14 +10,16 @@ Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편�
 ## 개발
 
 ```bash
+git clone https://github.com/dohyun06/quilleaf-be.git
+cd quilleaf-be
 npm install
 npm run check
-npm run build -w @obsidian-crdt/plugin
-npm run install-dev -w @obsidian-crdt/plugin -- "/path/to/test vault"
+npm run build -w @quilleaf/plugin
+npm run install-dev -w @quilleaf/plugin -- "/path/to/test vault"
 ```
 
-플러그인 ID는 `crdt-sync`이며 `<vault>/.obsidian/plugins/crdt-sync/`에 설치됩니다.
-설치 후 Obsidian에서 커뮤니티 플러그인 → CRDT Sync를 켜고 설정에서 서버 주소, 볼트 ID, 토큰을 입력합니다.
+플러그인 ID는 `quilleaf-sync`이며 `<vault>/.obsidian/plugins/quilleaf-sync/`에 설치됩니다.
+설치 후 Obsidian에서 커뮤니티 플러그인 → quilleaf Sync를 켜고 설정에서 서버 주소, 볼트 ID, 토큰을 입력합니다.
 토큰은 Obsidian 비밀 저장소에 보관되며 `data.json`에는 들어가지 않습니다.
 
 명령 팔레트에서 쓸 수 있는 명령:
@@ -32,3 +35,9 @@ npm run install-dev -w @obsidian-crdt/plugin -- "/path/to/test vault"
 - git 충돌이 나면 **작업 트리(CRDT) 버전을 우선**한다.
 - 2MB가 넘는 `.md`, `.obsidian/`, `.trash/`, `.git/`은 동기화하지 않는다. 첨부파일(이미지, PDF)은 아직 동기화하지 않는다.
 - 한꺼번에 많은 파일이 지워지면 동기화가 멈추고 확인 창이 뜬다.
+- **Windows가 담을 수 없는 이름은 어느 기기에서도 동기화에 들어가지 않는다.** `< > : " \ | ? *`나 제어 문자가 든 이름, `Misc./`처럼 점이나 공백으로 끝나는 폴더·파일 이름, `CON`·`PRN`·`AUX`·`NUL`·`CONIN$`·`CONOUT$`·`COM0`~`COM9`·`LPT0`~`LPT9`·`COM¹`~`COM³`·`LPT¹`~`LPT³` 같은 장치 이름(`CON.md`처럼 확장자가 붙어도)이 해당된다. Windows 기기에 옛 이름의 파일이 남는 일을 막기 위해서다.
+  - 그런 이름으로 **새 노트를 만들면** 서버에 올라가지 않고, 경로마다 세션당 한 번 "Windows에서 쓸 수 없는 이름이라 동기화하지 않습니다" 알림이 뜬다. 안전한 이름으로 바꾸면 그때 새 노트로 동기화된다.
+  - 이미 동기화되던 노트(폴더 이름 변경으로 옮겨진 노트 포함)를 **그런 이름으로 바꾸면** 이름 변경은 올라가지 않는다. 다른 기기에는 옛 이름 그대로 남고 어디서도 지워지지 않으며, 알림이 한 번 뜬다. 내용 편집은 양쪽으로 계속 동기화된다. 나중에 안전한 이름으로 바꾸면 그 이름 변경이 다른 기기에 반영되고, 그 사이 다른 기기에서 이름을 바꾸면 이 기기의 파일도 그 이름으로 옮겨진다.
+  - 이 규칙은 `a.md `·`C:/a.md`처럼 그 이름 때문에 `.md`나 경로 검사에서 빠지는 이름에도, 플러그인이 꺼져 있을 때 바꾼 이름(다음 시작 때 반영)에도 똑같이 적용된다. 이름 변경이 "삭제 + 생성"으로 들어오면, 그런 이름의 생성(또는 그런 이름으로 보류 중인 노트의 삭제)은 내용이 달라도 같은 시간 창의 삭제와 짝지어진다. 짝은 같은 내용 → 원래 서버 경로 → 같은 파일 이름 → 가장 오래된 삭제 순으로 고른다. 그래서 같은 순간에 지운 다른 노트와 잘못 짝지어질 수는 있지만(그 노트가 새 이름·새 내용으로 남는다), 노트가 지워지지는 않는다. 숨김 폴더나 `.md`가 아닌 이름처럼 다른 이유로 빠지는 곳으로 옮기면 지금처럼 삭제로 처리한다.
+- 이 규칙 이전에 다른 클라이언트가 올린 그런 이름(레거시 항목)은 지금처럼 다룬다. macOS, Linux, Android, quilleaf끼리는 그대로 동기화하고, **Windows 기기만** 그 노트를 디스크에 쓰지 않고 노트마다 세션당 한 번 "작업 하나가 실패했습니다" 알림을 띄운다. 다른 노트의 동기화는 막히지 않고, 어느 기기에서도 그 노트가 지워지지 않는다. `\`가 든 이름은 모든 기기에서 쓰지 않는다 (Obsidian은 그런 이름을 만들지 않는다).
+- 레거시 노트를 다른 클라이언트가 그런 이름으로 바꾼 경우, Windows 기기에서는 옛 이름 그대로 남고 내용은 계속 동기화된다. 그 파일은 같은 노트이므로 Windows에서 지우면 모든 기기에서 지워진다 (다른 기기에서는 `.trash`로 간다).

@@ -54,7 +54,7 @@
 ### 3.1 저장소 구조 (pnpm 모노레포, TypeScript)
 
 ```
-obsidian-crdt/
+quilleaf-be/
   packages/shared/   # 문서 이름 규칙, 인덱스 스키마 타입, 검증 함수
   packages/plugin/   # Obsidian 플러그인 (esbuild 번들)
   packages/server/   # Hocuspocus 서버 + 토큰 CLI

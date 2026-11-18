@@ -1,6 +1,7 @@
-import { foldPathCase, normalizeVaultPath } from "@obsidian-crdt/shared";
+import { foldPathCase, normalizeVaultPath } from "@quilleaf/shared";
 import type { DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
+import type { SyncNotice } from "./notices";
 import type { VaultPort } from "./ports";
 import type { FileRecord } from "./ports";
 import type { RecordStore } from "./recordStore";
@@ -13,6 +14,7 @@ export interface IndexApplierDeps {
   docs: DocManager;
   reconciler: FileReconciler;
   isEligible: (path: string) => boolean;
+  notify: (notice: SyncNotice) => void;
   /** Called when more work is possible (a document became synced, a move was unblocked), so another pass runs. */
   requestPass: () => void;
 }
@@ -22,6 +24,8 @@ type MoveOutcome = "moved" | "deferred" | "none";
 /** Makes this device's disk match the index: deletions, then moves, then creations (spec §4.4). */
 export class IndexApplier {
   private readonly awaitingSync = new Set<string>();
+  /** Entries already reported as failed this session (fileId and path), so each pass does not repeat the notice. */
+  private readonly reportedFailures = new Set<string>();
 
   constructor(private readonly deps: IndexApplierDeps) {}
 
@@ -29,9 +33,27 @@ export class IndexApplier {
     const plan = this.deps.index.planCollisionResolution();
     if (plan.length > 0) this.deps.index.applyReassignments(plan);
     const entries = this.deps.index.entries();
-    for (const entry of entries) if (entry.deleted) await this.applyDeletion(entry);
+    for (const entry of entries) if (entry.deleted) await this.isolated(entry, () => this.applyDeletion(entry));
     await this.applyMoves(entries.filter((entry) => !entry.deleted));
-    for (const entry of entries) if (!entry.deleted) await this.applyCreation(entry);
+    for (const entry of entries) if (!entry.deleted) await this.isolated(entry, () => this.applyCreation(entry));
+  }
+
+  /** Boundary: an entry this device cannot apply (a name its file system rejects) must not block the others. */
+  private async isolated<T>(entry: IndexEntry, task: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await task();
+    } catch (error) {
+      this.reportFailure(entry, error);
+      return undefined;
+    }
+  }
+
+  private reportFailure(entry: IndexEntry, error: unknown): void {
+    const key = `${entry.fileId}/${entry.path}`;
+    if (this.reportedFailures.has(key)) return;
+    this.reportedFailures.add(key);
+    const reason = error instanceof Error ? error.message : String(error);
+    this.deps.notify({ kind: "task-failed", message: `${entry.path}: ${reason}` });
   }
 
   private async applyDeletion(entry: IndexEntry): Promise<void> {
@@ -46,19 +68,20 @@ export class IndexApplier {
     const deferred: IndexEntry[] = [];
     let moved = false;
     for (const entry of entries) {
-      const outcome = await this.applyMove(entry);
+      const outcome = await this.isolated(entry, () => this.applyMove(entry));
       if (outcome === "moved") moved = true;
       if (outcome === "deferred") deferred.push(entry);
     }
     if (deferred.length === 0) return;
     if (moved) return this.deps.requestPass();
     const blocked = deferred.find((entry) => this.occupantMustMove(entry));
-    if (blocked) await this.moveAside(blocked);
+    if (blocked) await this.isolated(blocked, () => this.moveAside(blocked));
   }
 
   private async applyMove(entry: IndexEntry): Promise<MoveOutcome> {
     const record = this.deps.records.get(entry.fileId);
     if (!record || record.path === entry.path) return "none";
+    if (record.heldIndexPath === entry.path) return "none"; // this device's own rename that was not synced
     if (!this.deps.isEligible(entry.path)) return "none";
     if (await this.isTargetBusy(record.path, entry.path)) return "deferred"; // a later pass retries
     await this.moveRecordAndFile(entry.fileId, record, entry.path);
@@ -113,9 +136,21 @@ export class IndexApplier {
       return;
     }
     if ((await this.deps.vault.read(entry.path)) !== null) return this.adoptExisting(entry);
-    const text = opened.text.toString();
+    if (!(await this.createRecordAndFile(entry, opened.text.toString()))) await this.adoptExisting(entry);
+  }
+
+  /**
+   * The record comes first, so the resulting create event is recognised; a failed write (a name this file system
+   * rejects) removes it, or the next startup scan would read the missing file as a delete and delete it everywhere.
+   */
+  private async createRecordAndFile(entry: IndexEntry, text: string): Promise<boolean> {
     await this.deps.records.set(entry.fileId, { path: entry.path, base: text });
-    if (!(await this.deps.vault.replace(entry.path, null, text))) await this.adoptExisting(entry);
+    try {
+      return await this.deps.vault.replace(entry.path, null, text);
+    } catch (error) {
+      await this.deps.records.delete(entry.fileId);
+      throw error;
+    }
   }
 
   private passWhenSynced(fileId: string, synced: Promise<void>): void {
@@ -137,5 +172,5 @@ export class IndexApplier {
 function temporaryMovePath(path: string, fileId: string): string {
   const dot = path.lastIndexOf(".");
   const stem = dot > path.lastIndexOf("/") ? path.slice(0, dot) : path;
-  return `${stem}.crdt-move-${fileId.slice(0, 6)}.md`;
+  return `${stem}.quilleaf-move-${fileId.slice(0, 6)}.md`;
 }

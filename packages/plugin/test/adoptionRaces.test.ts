@@ -1,4 +1,4 @@
-import { buildIndexDocName } from "@obsidian-crdt/shared";
+import { buildIndexDocName } from "@quilleaf/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { LoopbackHub } from "./fakes/loopback";
 import { type Device, fileDocName, settle, startDevice, TEST_VAULT_ID } from "./fakes/device";

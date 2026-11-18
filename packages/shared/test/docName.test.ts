@@ -5,7 +5,7 @@ import {
   InvalidDocNameError,
   isValidVaultId,
   parseDocName,
-} from "@obsidian-crdt/shared";
+} from "@quilleaf/shared";
 
 const VAULT = "my-vault-01";
 const FILE = "3f2b8c1e-9a4d-4e7f-8b6a-1c2d3e4f5a6b";

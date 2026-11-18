@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, isValidSecretId, mergeSettings, resolveSessionConfig, userColor } from "../src/settings/settings";
 
-const valid = { ...DEFAULT_SETTINGS, enabled: true, serverUrl: "wss://sync.example.com", vaultId: "my-vault-01", tokenSecretId: "crdt-sync-token" };
+const valid = { ...DEFAULT_SETTINGS, enabled: true, serverUrl: "wss://sync.example.com", vaultId: "my-vault-01", tokenSecretId: "quilleaf-sync-token" };
 
 describe("settings", () => {
   it("falls back to defaults for missing or mistyped fields", () => {
@@ -14,7 +14,7 @@ describe("settings", () => {
   });
 
   it("resolves a valid configuration with the token from secret storage", () => {
-    expect(resolveSessionConfig(valid, (id) => (id === "crdt-sync-token" ? "tok" : null))).toEqual({
+    expect(resolveSessionConfig(valid, (id) => (id === "quilleaf-sync-token" ? "tok" : null))).toEqual({
       ok: true,
       config: { serverUrl: "wss://sync.example.com", vaultId: "my-vault-01", token: "tok", deviceName: "Obsidian" },
     });
@@ -42,7 +42,7 @@ describe("settings", () => {
   });
 
   it("allows ws://localhost:1234", () => {
-    const result = resolveSessionConfig({ ...valid, serverUrl: "ws://localhost:1234" }, (id) => (id === "crdt-sync-token" ? "tok" : null));
+    const result = resolveSessionConfig({ ...valid, serverUrl: "ws://localhost:1234" }, (id) => (id === "quilleaf-sync-token" ? "tok" : null));
     expect(result.ok).toBe(true);
   });
 
@@ -51,7 +51,7 @@ describe("settings", () => {
   });
 
   it("validates secret id patterns", () => {
-    expect(isValidSecretId("crdt-sync-token")).toBe(true);
+    expect(isValidSecretId("quilleaf-sync-token")).toBe(true);
     expect(isValidSecretId("my-id-123")).toBe(true);
     expect(isValidSecretId("")).toBe(false);
     expect(isValidSecretId("Bad Id")).toBe(false);
@@ -59,7 +59,7 @@ describe("settings", () => {
   });
 
   it("trims token from secret storage", () => {
-    const result = resolveSessionConfig(valid, (id) => (id === "crdt-sync-token" ? "  tok  " : null));
+    const result = resolveSessionConfig(valid, (id) => (id === "quilleaf-sync-token" ? "  tok  " : null));
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.config.token).toBe("tok");
   });

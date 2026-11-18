@@ -28,6 +28,11 @@ export interface FileRecord {
   path: string;
   /** Text last agreed between disk and Y.Text on this device; null before the first sync. */
   base: string | null;
+  /**
+   * Set while this device has the file under a name Windows cannot hold (a local rename that was not synced): the
+   * index path other devices keep. A remote move to any other path still applies and clears it.
+   */
+  heldIndexPath?: string;
 }
 
 export interface StoragePort {

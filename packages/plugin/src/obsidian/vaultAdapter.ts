@@ -1,3 +1,4 @@
+import { isWindowsSafePath } from "@quilleaf/shared";
 import type { VaultEvent, VaultPort } from "../core/ports";
 
 export interface ObsidianFileLike {
@@ -31,12 +32,28 @@ export class FileNotFoundError extends Error {
   }
 }
 
+/** Thrown before a create or move this device's file system would put somewhere else, or reject. */
+export class UnwritablePathError extends Error {
+  constructor(path: string) {
+    super(`this device cannot hold the name ${path}`);
+    this.name = "UnwritablePathError";
+  }
+}
+
+export interface VaultAdapterOptions {
+  /** Windows file systems: names Windows cannot hold are refused (see isWindowsSafePath). */
+  windows: boolean;
+}
+
 const isFile = (entry: ObsidianFileLike | null): entry is ObsidianFileLike => entry !== null && typeof entry.extension === "string";
 const isFolder = (entry: ObsidianFileLike): boolean => entry.children !== undefined;
 const parentOf = (path: string): string => (path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "");
 
 export class ObsidianVaultAdapter implements VaultPort {
-  constructor(private readonly vault: ObsidianVaultLike) {}
+  constructor(
+    private readonly vault: ObsidianVaultLike,
+    private readonly options: VaultAdapterOptions = { windows: false },
+  ) {}
 
   async listFiles(): Promise<string[]> {
     return this.vault.getMarkdownFiles().map((file) => file.path);
@@ -65,6 +82,7 @@ export class ObsidianVaultAdapter implements VaultPort {
   async rename(oldPath: string, newPath: string): Promise<void> {
     const file = this.vault.getAbstractFileByPath(oldPath);
     if (!isFile(file)) throw new FileNotFoundError(oldPath);
+    this.assertCanHold(newPath);
     await this.ensureFolder(parentOf(newPath));
     await this.vault.rename(file, newPath);
   }
@@ -100,6 +118,7 @@ export class ObsidianVaultAdapter implements VaultPort {
 
   private async createIfAbsent(path: string, text: string): Promise<boolean> {
     if (this.vault.getAbstractFileByPath(path)) return false;
+    this.assertCanHold(path);
     await this.ensureFolder(parentOf(path));
     try {
       await this.vault.create(path, text);
@@ -108,6 +127,15 @@ export class ObsidianVaultAdapter implements VaultPort {
       if (this.vault.getAbstractFileByPath(path)) return false; // lost a race with another writer
       throw error;
     }
+  }
+
+  /**
+   * Other clients may sync names this file system cannot hold; Windows would write them elsewhere (even outside the
+   * vault) or fail. A `\` is refused everywhere: Obsidian itself never creates one and may read it as a separator.
+   */
+  private assertCanHold(path: string): void {
+    const holdable = this.options.windows ? isWindowsSafePath(path) : !path.includes("\\");
+    if (!holdable) throw new UnwritablePathError(path);
   }
 
   private async ensureFolder(path: string): Promise<void> {

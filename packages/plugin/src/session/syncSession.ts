@@ -188,7 +188,7 @@ export class SyncSession {
     this.syncer?.pause();
     if (wasStarting) {
       // The owner's restart chain is blocked on this very start(), so stop directly; start() then returns.
-      this.stop().catch((error) => console.error("CRDT Sync: stopping after auth failure failed", error));
+      this.stop().catch((error) => console.error("quilleaf Sync: stopping after auth failure failed", error));
       return;
     }
     this.deps.onAuthFailed();

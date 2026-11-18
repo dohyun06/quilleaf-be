@@ -1,5 +1,5 @@
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
-import { RECONNECT_MAX_DELAY_MS } from "@obsidian-crdt/shared";
+import { RECONNECT_MAX_DELAY_MS } from "@quilleaf/shared";
 import type * as Y from "yjs";
 import type { DocSyncer, DocSyncHandle } from "./ports";
 import { assertSecureServerUrl } from "./serverUrl";
@@ -13,24 +13,42 @@ export interface HocuspocusSyncerOptions {
   onStatus?: (status: ConnectionStatus) => void;
 }
 
-/** All documents share one WebSocket (multiplexing). */
+/**
+ * Documents per WebSocket. Every (re)connect sends one auth request per attached document at once, and the server
+ * closes a socket with `maxPendingDocuments` (default 100) of them unanswered; staying under it holds on every reconnect.
+ */
+export const DOCS_PER_SOCKET = 64;
+
+/**
+ * The provider closes a socket that received nothing for 30 s (`messageReconnectTimeout`), the server one that sent
+ * nothing for 60 s. Awareness renewals keep only sockets with a bound editor busy, so every socket sends this often.
+ */
+export const SOCKET_KEEPALIVE_MS = 15_000;
+
+interface Shard {
+  socket: HocuspocusProviderWebsocket;
+  providers: Set<HocuspocusProvider>;
+  status: ConnectionStatus;
+  hasConnected: boolean;
+  closed: boolean;
+  keepalive: ReturnType<typeof setInterval>;
+}
+
+/** Documents share WebSockets (multiplexing), at most DOCS_PER_SOCKET each. */
 export class HocuspocusSyncer implements DocSyncer {
-  private readonly socket: HocuspocusProviderWebsocket;
-  private readonly providers = new Set<HocuspocusProvider>();
+  private readonly shards: Shard[] = [];
   private authFailed = false;
+  private paused = false;
+  private reported: ConnectionStatus | null = null;
 
   constructor(private readonly options: HocuspocusSyncerOptions) {
     assertSecureServerUrl(options.url);
-    this.socket = new HocuspocusProviderWebsocket({
-      url: options.url,
-      maxDelay: RECONNECT_MAX_DELAY_MS,
-      onStatus: ({ status }) => options.onStatus?.(status as ConnectionStatus),
-    });
   }
 
   connect(docName: string, doc: Y.Doc): DocSyncHandle {
+    const shard = this.shards.find((s) => s.providers.size < DOCS_PER_SOCKET) ?? this.addShard();
     const provider = new HocuspocusProvider({
-      websocketProvider: this.socket,
+      websocketProvider: shard.socket,
       name: docName,
       document: doc,
       token: this.options.token,
@@ -40,44 +58,103 @@ export class HocuspocusSyncer implements DocSyncer {
     // subscribed doc (thousands of notes → constant awareness traffic). attachSync publishes it on bind.
     provider.awareness?.setLocalState(null);
     provider.attach();
-    this.providers.add(provider);
+    shard.providers.add(provider);
     return {
       awareness: provider.awareness ?? null,
       isSynced: () => provider.isSynced,
       whenSynced: () => waitForSynced(provider),
       destroy: () => {
-        this.providers.delete(provider);
+        if (!shard.providers.delete(provider)) return;
         provider.destroy();
+        if (shard.providers.size === 0) this.removeShard(shard);
       },
     };
   }
 
   /** Disconnects without forgetting documents; edits keep accumulating locally. */
   pause(): void {
-    this.socket.disconnect();
+    this.paused = true;
+    for (const { socket } of this.shards) socket.disconnect();
   }
 
   resume(): void {
+    this.paused = false;
     if (this.authFailed) return;
     // disconnect() closes asynchronously. If resume() lands before the close event, connect() returns early
     // (still "connected") without re-arming, and the close would then leave the socket down for good.
-    this.socket.shouldConnect = true;
-    void this.socket.connect();
+    for (const { socket } of this.shards) {
+      socket.shouldConnect = true;
+      void socket.connect();
+    }
   }
 
   destroy(): void {
-    for (const provider of this.providers) provider.destroy();
-    this.providers.clear();
-    this.socket.destroy();
+    for (const shard of [...this.shards]) {
+      for (const provider of shard.providers) provider.destroy();
+      this.removeShard(shard);
+    }
+  }
+
+  private addShard(): Shard {
+    // made before its socket, which may report a status while it is constructed
+    const shard = { providers: new Set(), status: "connecting", hasConnected: false, closed: false } as unknown as Shard;
+    shard.socket = new HocuspocusProviderWebsocket({
+      url: this.options.url,
+      maxDelay: RECONNECT_MAX_DELAY_MS,
+      // a socket added while paused or after an auth failure stays down like the others
+      autoConnect: !this.paused && !this.authFailed,
+      onStatus: ({ status }) => this.onShardStatus(shard, status as ConnectionStatus),
+    });
+    shard.keepalive = setInterval(() => keepAlive(shard), SOCKET_KEEPALIVE_MS);
+    this.shards.push(shard);
+    return shard;
+  }
+
+  /** Marked closed first: the socket reports "disconnected" while it is destroyed. */
+  private removeShard(shard: Shard): void {
+    const position = this.shards.indexOf(shard);
+    if (position >= 0) this.shards.splice(position, 1);
+    shard.closed = true;
+    clearInterval(shard.keepalive);
+    shard.providers.clear();
+    shard.socket.destroy();
+  }
+
+  private onShardStatus(shard: Shard, status: ConnectionStatus): void {
+    if (shard.closed) return;
+    shard.status = status;
+    if (status === "connected") shard.hasConnected = true;
+    this.reportStatus();
+  }
+
+  /**
+   * One status for all sockets: connected only when every socket is. A socket still making its first connection
+   * does not turn a connected syncer back to "connecting" (one more socket per DOCS_PER_SOCKET documents opened).
+   */
+  private reportStatus(): void {
+    const settled = this.shards.filter((s) => s.hasConnected || s.status !== "connecting");
+    const all = (settled.length > 0 ? settled : this.shards).map((s) => s.status);
+    if (all.length === 0) return;
+    const status: ConnectionStatus = all.every((s) => s === "connected") ? "connected" : all.includes("disconnected") ? "disconnected" : "connecting";
+    if (status === this.reported) return;
+    this.reported = status;
+    this.options.onStatus?.(status);
   }
 
   /** A rejected token will not start working by retrying; stop until the user fixes the settings. */
   private handleAuthFailed(): void {
     if (this.authFailed) return;
     this.authFailed = true;
-    this.socket.disconnect();
+    for (const { socket } of this.shards) socket.disconnect();
     this.options.onAuthFailed();
   }
+}
+
+/** A sync step 1 the server always answers: traffic both ways, without presence (see SOCKET_KEEPALIVE_MS). */
+function keepAlive(shard: Shard): void {
+  if (shard.status !== "connected") return; // the provider queues messages while disconnected
+  const [provider] = shard.providers;
+  provider?.forceSync();
 }
 
 function waitForSynced(provider: HocuspocusProvider): Promise<void> {

@@ -1,4 +1,4 @@
-import { isWithinSizeLimit } from "@obsidian-crdt/shared";
+import { isWithinSizeLimit } from "@quilleaf/shared";
 import { buildConflictPath, withCounter } from "./conflictPath";
 import { DISK_ORIGIN, type DocManager, type OpenedDoc } from "./docManager";
 import type { SyncNotice } from "./notices";
@@ -135,7 +135,7 @@ export class FileReconciler {
     const disk = await this.deps.vault.read(record.path);
     if (disk === null || disk === record.base) return;
     if (disk !== opened.text.toString() && !this.deps.history.has(fileId, disk)) return;
-    await this.deps.records.set(fileId, { path: record.path, base: disk });
+    await this.deps.records.set(fileId, { ...record, base: disk });
   }
 
   /** A disk text the Y.Text already had (a lagging editor save) carries nothing new: it is the real base. */
@@ -200,7 +200,8 @@ export class FileReconciler {
   }
 
   private saveBase(target: Target, base: string): Promise<void> {
-    return this.deps.records.set(target.fileId, { path: target.path, base });
+    const record = this.deps.records.get(target.fileId);
+    return this.deps.records.set(target.fileId, { ...record, path: target.path, base });
   }
 
   /** Writes the copy until a free path accepts it; the user's disk text must never be lost. */

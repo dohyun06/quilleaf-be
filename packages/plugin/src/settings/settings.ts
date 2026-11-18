@@ -1,4 +1,4 @@
-import { isValidVaultId } from "@obsidian-crdt/shared";
+import { isValidVaultId } from "@quilleaf/shared";
 import { assertSecureServerUrl, InsecureServerUrlError } from "../core/serverUrl";
 
 export interface PluginSettings {
@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   enabled: false,
   serverUrl: "",
   vaultId: "",
-  tokenSecretId: "crdt-sync-token",
+  tokenSecretId: "quilleaf-sync-token",
   deviceName: "Obsidian",
   debugLogging: false,
 };

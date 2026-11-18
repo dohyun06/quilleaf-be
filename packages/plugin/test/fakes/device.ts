@@ -1,4 +1,4 @@
-import { buildFileDocName, CONTENT_TEXT_KEY } from "@obsidian-crdt/shared";
+import { buildFileDocName, CONTENT_TEXT_KEY } from "@quilleaf/shared";
 import type * as Y from "yjs";
 import type { SyncNotice } from "../../src/core/notices";
 import { SyncEngine, type SyncTiming } from "../../src/core/syncEngine";
@@ -40,6 +40,7 @@ export interface DeviceOptions {
   files?: Record<string, string>;
   online?: boolean;
   reuse?: Device;
+  excludedPrefixes?: readonly string[];
 }
 
 export function createDevice(hub: LoopbackHub, name: string, options: DeviceOptions = {}): Device {
@@ -57,6 +58,7 @@ export function createDevice(hub: LoopbackHub, name: string, options: DeviceOpti
     syncer,
     persistence,
     isOpenInEditor: (path) => openInEditor.has(path),
+    excludedPrefixes: options.excludedPrefixes,
     now: () => FIXED_NOW,
     notify: (notice) => notices.push(notice),
     timing: FAST_TIMING,

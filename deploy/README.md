@@ -14,7 +14,8 @@ sudo netfilter-persistent save
 
 ## 2. 실행
 ```bash
-cd deploy
+git clone https://github.com/dohyun06/quilleaf-be.git
+cd quilleaf-be/deploy
 cp .env.example .env   # SYNC_DOMAIN 수정
 docker compose up -d --build
 ```

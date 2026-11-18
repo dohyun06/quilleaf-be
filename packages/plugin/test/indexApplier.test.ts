@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import type { DocManager } from "../src/core/docManager";
 import type { FileReconciler } from "../src/core/fileReconciler";
 import { IndexApplier } from "../src/core/indexApplier";
+import type { SyncNotice } from "../src/core/notices";
 import { RecordStore } from "../src/core/recordStore";
 import { VaultIndex } from "../src/core/vaultIndex";
 import { FakeVault } from "./fakes/fakeVault";
@@ -31,6 +32,7 @@ async function setup(vault: FakeVault, targets: Record<string, string>, records:
   const index = new VaultIndex(new Y.Doc(), () => ids.shift()!);
   for (const path of Object.values(targets)) index.register(path, CREATED_AT);
   const store = await RecordStore.load(new MemoryStorage());
+  const notices: SyncNotice[] = [];
   for (const [fileId, path] of Object.entries(records)) await store.set(fileId, { path, base: vault.files.get(path) ?? null });
   const applier = new IndexApplier({
     vault,
@@ -39,9 +41,10 @@ async function setup(vault: FakeVault, targets: Record<string, string>, records:
     docs: {} as DocManager, // every entry already has a record: no creation opens a doc
     reconciler: {} as FileReconciler,
     isEligible: () => true,
+    notify: (notice) => notices.push(notice),
     requestPass: () => {},
   });
-  return { applier, store };
+  return { applier, store, notices };
 }
 
 describe("IndexApplier case-only moves on a case-sensitive vault (regression: record pointed at another note)", () => {
@@ -71,18 +74,28 @@ describe("IndexApplier case-only moves on a case-sensitive vault (regression: re
 });
 
 describe("IndexApplier restores the record when a rename fails", () => {
-  it("restores the record of a move and rethrows", async () => {
+  it("restores the record of a move and reports the failure", async () => {
     const vault = new FailingRenameVault({ "a.md": "body" });
-    const { applier, store } = await setup(vault, { [NOTE_ID]: "b.md" }, { [NOTE_ID]: "a.md" });
-    await expect(applier.apply()).rejects.toThrow("rename failed: disk error");
+    const { applier, store, notices } = await setup(vault, { [NOTE_ID]: "b.md" }, { [NOTE_ID]: "a.md" });
+    await applier.apply();
+    expect(notices).toEqual([{ kind: "task-failed", message: "b.md: rename failed: disk error" }]);
     expect(store.get(NOTE_ID)).toEqual({ path: "a.md", base: "body" });
     expect(store.findIdByPath("b.md")).toBeNull();
   });
 
-  it("restores the record of a move aside (swap) and rethrows", async () => {
-    const vault = new FailingRenameVault({ "a.md": "A", "b.md": "B" });
+  it("breaks a swap by moving one note aside under a quilleaf-move name", async () => {
+    const vault = new FakeVault({ "a.md": "A", "b.md": "B" });
     const { applier, store } = await setup(vault, { [NOTE_ID]: "b.md", [OTHER_ID]: "a.md" }, { [NOTE_ID]: "a.md", [OTHER_ID]: "b.md" });
-    await expect(applier.apply()).rejects.toThrow("rename failed: disk error");
+    await applier.apply();
+    expect([...vault.files.keys()].sort()).toEqual(["a.quilleaf-move-aaaaaa.md", "b.md"]);
+    expect(store.get(NOTE_ID)?.path).toBe("a.quilleaf-move-aaaaaa.md");
+  });
+
+  it("restores the record of a move aside (swap) and reports the failure", async () => {
+    const vault = new FailingRenameVault({ "a.md": "A", "b.md": "B" });
+    const { applier, store, notices } = await setup(vault, { [NOTE_ID]: "b.md", [OTHER_ID]: "a.md" }, { [NOTE_ID]: "a.md", [OTHER_ID]: "b.md" });
+    await applier.apply();
+    expect(notices).toMatchObject([{ kind: "task-failed", message: expect.stringContaining("rename failed: disk error") }]);
     expect(store.get(NOTE_ID)).toEqual({ path: "a.md", base: "A" });
     expect(store.get(OTHER_ID)).toEqual({ path: "b.md", base: "B" });
     expect(store.findIdByPath("a.md")).toBe(NOTE_ID);

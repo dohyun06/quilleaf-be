@@ -1,4 +1,4 @@
-import { editorInfoField, MarkdownView, Notice, Plugin } from "obsidian";
+import { editorInfoField, MarkdownView, Notice, Platform, Plugin } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { HocuspocusSyncer } from "./core/hocuspocusSyncer";
 import type { SyncNotice } from "./core/notices";
@@ -32,7 +32,7 @@ export default class CrdtSyncPlugin extends Plugin {
       getUser: () => ({ name: this.settings.deviceName, ...userColor(this.settings.deviceName) }),
       fileOf: (state) => state.field(editorInfoField, false)?.file?.path ?? null,
       saveEditor: (view, path) => this.saveEditor(view, path),
-      reportError: (error) => console.error("CRDT Sync: editor binding failed", error),
+      reportError: (error) => console.error("quilleaf Sync: editor binding failed", error),
       debug: (event, fields) => this.debugLog(event, fields),
     });
     this.registerEditorExtension(this.bridge.extension());
@@ -111,9 +111,9 @@ export default class CrdtSyncPlugin extends Plugin {
     try {
       await this.restartUnchecked();
     } catch (error) {
-      console.error("CRDT Sync: restart failed", error);
+      console.error("quilleaf Sync: restart failed", error);
       this.statusBar?.render("error");
-      new Notice(`CRDT Sync를 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+      new Notice(`quilleaf Sync를 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -125,15 +125,15 @@ export default class CrdtSyncPlugin extends Plugin {
     const result = resolveSessionConfig(this.settings, (id) => this.app.secretStorage.getSecret(id));
     if (!result.ok) {
       this.statusBar?.render("error");
-      new Notice(`CRDT Sync 설정을 확인하세요:\n${result.problems.join("\n")}`);
+      new Notice(`quilleaf Sync 설정을 확인하세요:\n${result.problems.join("\n")}`);
       return;
     }
     this.session = this.createSession(result.config);
     try {
       await this.session.start();
     } catch (error) {
-      console.error("CRDT Sync: session start failed", error);
-      new Notice(`CRDT Sync를 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("quilleaf Sync: session start failed", error);
+      new Notice(`quilleaf Sync를 시작하지 못했습니다: ${error instanceof Error ? error.message : String(error)}`);
     }
     this.bridge?.refreshAll();
   }
@@ -141,7 +141,7 @@ export default class CrdtSyncPlugin extends Plugin {
   private createSession(config: SessionConfig): SyncSession {
     const session: SyncSession = new SyncSession({
       config,
-      vault: new ObsidianVaultAdapter(this.app.vault),
+      vault: new ObsidianVaultAdapter(this.app.vault, { windows: Platform.isWin }),
       openStorage: (cfg) => this.openStorage(cfg),
       createSyncer: (cfg, handlers) => new HocuspocusSyncer({ url: cfg.serverUrl, token: cfg.token, ...handlers }),
       isOpenInEditor: (path) => this.bridge?.isOpen(path) ?? false,
@@ -156,17 +156,17 @@ export default class CrdtSyncPlugin extends Plugin {
 
   /** Checked on every call, so toggling the setting takes effect without a restart. Fields never hold note text. */
   private debugLog(event: string, fields: Record<string, string | number | boolean>): void {
-    if (this.settings.debugLogging) console.debug("CRDT Sync", event, fields);
+    if (this.settings.debugLogging) console.debug("quilleaf Sync", event, fields);
   }
 
   private async openStorage(config: SessionConfig): Promise<SessionStorage> {
-    const db = await openSyncDatabase(`crdt-sync/${this.app.vault.getName()}/${config.vaultId}`, indexedDB);
-    const persistence = new IdbDocPersistence(db, { onError: (error) => console.error("CRDT Sync: saving local state failed", error) });
+    const db = await openSyncDatabase(`quilleaf-sync/${this.app.vault.getName()}/${config.vaultId}`, indexedDB);
+    const persistence = new IdbDocPersistence(db, { onError: (error) => console.error("quilleaf Sync: saving local state failed", error) });
     return { storage: new IdbStorage(db), persistence, flush: () => persistence.flushAll(), close: () => db.close() };
   }
 
   private showNotice(notice: SyncNotice, session: SyncSession): void {
-    if (this.settings.debugLogging) console.debug("CRDT Sync notice", notice.kind);
+    if (this.settings.debugLogging) console.debug("quilleaf Sync notice", notice.kind);
     new Notice(noticeMessage(notice));
     if (notice.kind !== "mass-delete-paused") return;
     this.openMassDeleteModal(session, notice.paths);
@@ -176,7 +176,7 @@ export default class CrdtSyncPlugin extends Plugin {
     try {
       await this.bridge?.detachAll(); // needs the running engine for capture/notify
     } catch (error) {
-      console.error("CRDT Sync: detaching editors failed", error);
+      console.error("quilleaf Sync: detaching editors failed", error);
       new Notice("편집기 저장에 실패했지만 동기화를 중지합니다.");
     } finally {
       const session = this.session;

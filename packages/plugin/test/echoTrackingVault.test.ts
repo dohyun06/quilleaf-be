@@ -24,6 +24,15 @@ describe("EchoTrackingVault", () => {
     expect(vault.consume({ type: "rename", oldPath: "missing.md", path: "b.md" })).toBe(false);
   });
 
+  it("does not swallow a later real delete after trashing a file that was already gone (regression)", async () => {
+    const fake = new FakeVault({});
+    const vault = new EchoTrackingVault(fake);
+    await vault.trash("a.md"); // resolves without a delete event
+    fake.externalWrite("a.md", "back");
+    expect(vault.consume({ type: "create", path: "a.md" })).toBe(false);
+    expect(vault.consume({ type: "delete", path: "a.md" })).toBe(false);
+  });
+
   it("never swallows create or modify events", () => {
     const vault = new EchoTrackingVault(new FakeVault({}));
     expect(vault.consume({ type: "create", path: "a.md" })).toBe(false);

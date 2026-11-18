@@ -45,6 +45,40 @@ describe("startup scan and bootstrap", () => {
     expect(hub.serverText(fileDocName(a, "a.md"))).toBe("new");
   });
 
+  it("leaves a record at a path this device does not sync instead of deleting the note everywhere", async () => {
+    const hub = new LoopbackHub();
+    const a = await start(hub, "A", { "cfg/a.md": "from A" });
+    await settle([a]);
+    const fileId = fileDocName(a, "cfg/a.md").split("/")[1]!;
+    // B tracked the note, then stopped syncing that folder (another config folder, or a stricter path rule)
+    const b = createDevice(hub, "B", { excludedPrefixes: ["cfg/"] });
+    b.storage.records.set(fileId, { path: "cfg/a.md", base: "from A" });
+    running.push(b);
+    await b.engine.start();
+    await settle([a, b]);
+    expect(a.vault.files.get("cfg/a.md")).toBe("from A");
+    expect(b.vault.files.has("cfg/a.md")).toBe(false);
+  });
+
+  it("does not delete a note everywhere after this device failed to create it (regression: Windows-invalid name)", async () => {
+    const hub = new LoopbackHub();
+    const a = await start(hub, "A", { "what?.md": "from a Mac" });
+    await settle([a]);
+    const b = createDevice(hub, "B");
+    const replace = b.vault.replace.bind(b.vault);
+    b.vault.replace = async (path, expected, next) => {
+      if (path.includes("?")) throw new Error("ENOENT: invalid file name"); // what Windows does with "?"
+      return replace(path, expected, next);
+    };
+    running.push(b);
+    await b.engine.start();
+    await settle([a, b]);
+    const restarted = await restartDevice(hub, b);
+    running.splice(running.indexOf(b), 1, restarted);
+    await settle([a, restarted]);
+    expect(a.vault.files.get("what?.md")).toBe("from a Mac");
+  });
+
   it("waits for the server on the very first start", async () => {
     const hub = new LoopbackHub();
     const device = createDevice(hub, "A", { online: false });

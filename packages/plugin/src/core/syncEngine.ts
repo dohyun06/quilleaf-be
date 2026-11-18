@@ -6,7 +6,7 @@ import {
   MASS_DELETE_WINDOW_MS,
   normalizeVaultPath,
   RENAME_PAIR_WINDOW_MS,
-} from "@obsidian-crdt/shared";
+} from "@quilleaf/shared";
 import { type DebugLog, type EditorDoc, EditorAccess } from "./editorAccess";
 import { createWiring, type Wiring } from "./engineWiring";
 import type { SyncNotice } from "./notices";

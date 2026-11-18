@@ -1,4 +1,4 @@
-import { MAX_SYNC_FILE_BYTES } from "@obsidian-crdt/shared";
+import { MAX_SYNC_FILE_BYTES } from "@quilleaf/shared";
 import { describe, expect, it } from "vitest";
 import { DocManager } from "../src/core/docManager";
 import { TextHistory } from "../src/core/textHistory";

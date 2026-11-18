@@ -4,7 +4,7 @@ import * as Y from "yjs";
 import { openSyncDatabase, runRequest, STORE_DOCS } from "../src/obsidian/idb";
 import { IdbDocPersistence } from "../src/obsidian/idbDocPersistence";
 
-const DB = "crdt-sync/test-vault/test-vault-01";
+const DB = "quilleaf-sync/test-vault/test-vault-01";
 const NAME = "test-vault-01/3f2b8c1e-9a4d-4e7f-8b6a-1c2d3e4f5a6b";
 
 describe("IdbDocPersistence", () => {

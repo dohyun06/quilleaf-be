@@ -38,7 +38,11 @@ export class EchoTrackingVault implements VaultPort {
 
   /** True (once per own operation) when the event is the echo of an engine rename or trash. */
   consume(event: VaultEvent): boolean {
-    if (event.type === "create" || event.type === "modify") return false;
+    if (event.type === "create" || event.type === "modify") {
+      // The file is there again: a trash that found it already gone raised no event, and its echo never comes.
+      this.expected.delete(["delete", event.path].join(SEPARATOR));
+      return false;
+    }
     const key = event.type === "rename" ? ["rename", event.oldPath, event.path].join(SEPARATOR) : ["delete", event.path].join(SEPARATOR);
     const count = this.expected.get(key) ?? 0;
     if (count === 0) return false;

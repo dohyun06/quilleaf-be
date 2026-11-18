@@ -1,4 +1,4 @@
-import { parseDocName } from "@obsidian-crdt/shared";
+import { parseDocName } from "@quilleaf/shared";
 
 export type AuthorizationErrorCode = "invalid-document" | "invalid-token" | "vault-mismatch";
 

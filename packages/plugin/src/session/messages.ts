@@ -1,4 +1,4 @@
-import { MAX_SYNC_FILE_BYTES } from "@obsidian-crdt/shared";
+import { MAX_SYNC_FILE_BYTES } from "@quilleaf/shared";
 import type { SyncNotice } from "../core/notices";
 import type { SyncStatus } from "./status";
 
@@ -8,17 +8,22 @@ const MAX_SYNC_FILE_MB = MAX_SYNC_FILE_BYTES / (1024 * 1024);
 export function noticeMessage(notice: SyncNotice): string {
   switch (notice.kind) {
     case "waiting-for-first-sync":
-      return "CRDT Sync: 첫 동기화는 서버 연결이 필요합니다. 연결을 기다리는 중입니다.";
+      return "quilleaf Sync: 첫 동기화는 서버 연결이 필요합니다. 연결을 기다리는 중입니다.";
     case "conflict-copy":
-      return `CRDT Sync: ${notice.path}의 디스크 내용이 서버와 달라 ${notice.copyPath}에 따로 저장했습니다.`;
+      return `quilleaf Sync: ${notice.path}의 디스크 내용이 서버와 달라 ${notice.copyPath}에 따로 저장했습니다.`;
     case "file-too-large":
-      return `CRDT Sync: ${notice.path}은(는) ${MAX_SYNC_FILE_MB}MB를 넘어 동기화하지 않습니다.`;
+      return `quilleaf Sync: ${notice.path}은(는) ${MAX_SYNC_FILE_MB}MB를 넘어 동기화하지 않습니다.`;
+    case "windows-unsafe-name":
+      if (notice.keptPath === null) {
+        return `quilleaf Sync: ${notice.path}은(는) Windows에서 쓸 수 없는 이름이라 동기화하지 않습니다. 이름을 바꾸세요.`;
+      }
+      return `quilleaf Sync: ${notice.path}은(는) Windows에서 쓸 수 없는 이름이라 다른 기기에는 ${notice.keptPath}(으)로 남습니다. 내용은 계속 동기화되고, 이름을 바꾸면 그 이름이 동기화됩니다.`;
     case "mass-delete-paused": {
       const listed = notice.paths.slice(0, MAX_LISTED_PATHS).join(", ");
-      return `CRDT Sync: 파일 ${notice.paths.length}개가 한꺼번에 삭제되어 동기화를 멈췄습니다 (${listed}). 확인 창에서 선택하세요.`;
+      return `quilleaf Sync: 파일 ${notice.paths.length}개가 한꺼번에 삭제되어 동기화를 멈췄습니다 (${listed}). 확인 창에서 선택하세요.`;
     }
     case "task-failed":
-      return `CRDT Sync: 작업 하나가 실패했습니다 — ${notice.message}`;
+      return `quilleaf Sync: 작업 하나가 실패했습니다 — ${notice.message}`;
   }
 }
 

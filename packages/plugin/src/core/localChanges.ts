@@ -1,4 +1,4 @@
-import { isWithinSizeLimit } from "@obsidian-crdt/shared";
+import { isWindowsSafePath, isWithinSizeLimit } from "@quilleaf/shared";
 import { DISK_ORIGIN, type DocManager } from "./docManager";
 import type { FileReconciler } from "./fileReconciler";
 import type { MassDeleteGuard } from "./massDeleteGuard";
@@ -32,6 +32,7 @@ export class LocalChangeHandler {
   private readonly pendingDeletes = new Map<string, PendingDelete>();
   private pausedDeletes: PendingDelete[] = [];
   private readonly oversizeNotified = new Set<string>();
+  private readonly unsafeNameNotified = new Set<string>();
 
   constructor(private readonly deps: LocalChangeDeps) {}
 
@@ -46,16 +47,12 @@ export class LocalChangeHandler {
     if (live && !this.deps.records.get(live.fileId)) return this.adoptRemoteEntry(live.fileId, path);
     const text = await this.deps.vault.read(path);
     if (text === null) return;
-    if (!isWithinSizeLimit(text)) {
-      if (!this.oversizeNotified.has(path)) {
-        this.oversizeNotified.add(path);
-        this.deps.notify({ kind: "file-too-large", path });
-      }
-      return;
-    }
-    this.oversizeNotified.delete(path);
-    const renamed = this.takePendingDeleteWithBase(text);
+    // A synced note renamed as delete + create: moveTracked holds a name Windows cannot hold instead of dropping it.
+    // Before the size check, or an oversize rename would leave the delete to remove the note everywhere.
+    const renamed = this.takeRenamedFrom(path, text);
     if (renamed) return this.moveTracked(renamed.fileId, path);
+    if (!this.fitsSizeLimit(path, text)) return;
+    if (!isWindowsSafePath(path)) return this.notifyUnsafeName(path, null);
     await this.registerNew(path, text);
   }
 
@@ -126,8 +123,16 @@ export class LocalChangeHandler {
 
   private async moveTracked(fileId: string, newPath: string): Promise<void> {
     const record = this.deps.records.get(fileId);
-    this.deps.index.rename(fileId, newPath);
-    await this.deps.records.set(fileId, { path: newPath, base: record?.base ?? null });
+    const base = record?.base ?? null;
+    if (isWindowsSafePath(newPath)) {
+      this.deps.index.rename(fileId, newPath);
+      await this.deps.records.set(fileId, { path: newPath, base });
+    } else {
+      // Other devices keep the note at its index path (a Windows device could not follow); this file keeps syncing.
+      const heldIndexPath = this.deps.index.get(fileId)?.path ?? record?.path ?? newPath;
+      await this.deps.records.set(fileId, { path: newPath, base, heldIndexPath });
+      this.notifyUnsafeName(newPath, heldIndexPath);
+    }
     // A renamed open note keeps its editor: the disk may hold a lagging autosave that must not be merged again.
     await this.reconcileUnlessOpen(fileId, newPath);
   }
@@ -138,6 +143,26 @@ export class LocalChangeHandler {
     return this.deps.reconciler.reconcile(fileId);
   }
 
+  /** Spec §5: oversize files are not synced; one notice per path until it fits again. */
+  private fitsSizeLimit(path: string, text: string): boolean {
+    if (isWithinSizeLimit(text)) {
+      this.oversizeNotified.delete(path);
+      return true;
+    }
+    if (!this.oversizeNotified.has(path)) {
+      this.oversizeNotified.add(path);
+      this.deps.notify({ kind: "file-too-large", path });
+    }
+    return false;
+  }
+
+  /** Once per path per session: the startup scan and every edit would otherwise repeat it. */
+  private notifyUnsafeName(path: string, keptPath: string | null): void {
+    if (this.unsafeNameNotified.has(path)) return;
+    this.unsafeNameNotified.add(path);
+    this.deps.notify({ kind: "windows-unsafe-name", path, keptPath });
+  }
+
   private async registerNew(path: string, text: string): Promise<void> {
     const fileId = this.deps.index.register(path, this.deps.now());
     const opened = await this.deps.docs.open(fileId);
@@ -145,15 +170,30 @@ export class LocalChangeHandler {
     await this.deps.records.set(fileId, { path, base: text });
   }
 
-  /** Empty files are never paired: any two empty notes would look like a rename. */
-  private takePendingDeleteWithBase(text: string): PendingDelete | null {
-    if (text === "") return null;
-    for (const item of this.pendingDeletes.values()) {
-      if (item.base === text) {
-        this.pendingDeletes.delete(item.fileId);
-        return item;
-      }
-    }
-    return null;
+  /**
+   * The pending delete a create is the other half of. Same text is a rename (never empty text: any two empty notes
+   * would match). A create under a name Windows cannot hold, or of a note held under one, pairs whatever its text:
+   * unpaired, the delete would remove the note from every other device, and a wrong pair only renames and edits a
+   * note the user deleted. Then preferred: the note's index path (renamed back), its file name (a folder rename), the oldest.
+   */
+  private takeRenamedFrom(path: string, text: string): PendingDelete | null {
+    const sameText = (item: PendingDelete) => text !== "" && item.base === text;
+    const anyText = !isWindowsSafePath(path);
+    const candidates = [...this.pendingDeletes.values()].filter((item) => anyText || sameText(item) || this.isHeld(item.fileId));
+    const match =
+      candidates.find(sameText) ??
+      candidates.find((item) => this.deps.index.get(item.fileId)?.path === path) ??
+      candidates.find((item) => fileName(item.path) === fileName(path)) ??
+      candidates[0];
+    if (match) this.pendingDeletes.delete(match.fileId);
+    return match ?? null;
   }
+
+  private isHeld(fileId: string): boolean {
+    return this.deps.records.get(fileId)?.heldIndexPath !== undefined;
+  }
+}
+
+function fileName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }

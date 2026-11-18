@@ -5,13 +5,15 @@ interface StoredRecord {
   fileId: string;
   path: string;
   base: string | null;
+  heldIndexPath?: string;
 }
 
 function toEntry(value: unknown): [string, FileRecord] | null {
   if (typeof value !== "object" || value === null) return null;
-  const { fileId, path, base } = value as Record<string, unknown>;
+  const { fileId, path, base, heldIndexPath } = value as Record<string, unknown>;
   if (typeof fileId !== "string" || typeof path !== "string") return null;
   if (base !== null && typeof base !== "string") return null;
+  if (typeof heldIndexPath === "string") return [fileId, { path, base, heldIndexPath }];
   return [fileId, { path, base }];
 }
 
@@ -25,6 +27,7 @@ export class IdbStorage implements StoragePort {
 
   async saveRecord(fileId: string, record: FileRecord): Promise<void> {
     const stored: StoredRecord = { fileId, path: record.path, base: record.base };
+    if (record.heldIndexPath !== undefined) stored.heldIndexPath = record.heldIndexPath;
     await runRequest(this.db, STORE_RECORDS, "readwrite", (store) => store.put(stored, fileId));
   }
 

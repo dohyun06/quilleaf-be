@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDB_OPEN_TIMEOUT_MS, openSyncDatabase, runRequest, STORE_RECORDS, StorageUnavailableError } from "../src/obsidian/idb";
 import { IdbStorage } from "../src/obsidian/idbStorage";
 
-const DB = "crdt-sync/test-vault/test-vault-01";
+const DB = "quilleaf-sync/test-vault/test-vault-01";
 
 describe("IdbStorage", () => {
   it("saves, reloads and deletes records across connections", async () => {
@@ -16,6 +16,16 @@ describe("IdbStorage", () => {
     first.close();
     const second = await openSyncDatabase(DB, factory);
     expect(await new IdbStorage(second).loadRecords()).toEqual([["id-1", { path: "a.md", base: "x" }]]);
+    second.close();
+  });
+
+  it("keeps the index path of a note held under a name Windows cannot hold", async () => {
+    const factory = new IDBFactory();
+    const first = await openSyncDatabase(DB, factory);
+    await new IdbStorage(first).saveRecord("id-1", { path: "a?.md", base: "x", heldIndexPath: "a.md" });
+    first.close();
+    const second = await openSyncDatabase(DB, factory);
+    expect(await new IdbStorage(second).loadRecords()).toEqual([["id-1", { path: "a?.md", base: "x", heldIndexPath: "a.md" }]]);
     second.close();
   });
 

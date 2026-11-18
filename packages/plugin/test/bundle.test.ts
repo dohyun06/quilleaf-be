@@ -21,6 +21,6 @@ describe("plugin bundle", () => {
     expect(externals.filter((path) => NODE_BUILTINS.has(path))).toEqual([]);
     expect(externals.filter((path) => !ALLOWED_EXTERNALS.has(path))).toEqual([]);
     const manifest = JSON.parse(readFileSync(join(PLUGIN_DIR, "dist/manifest.json"), "utf8")) as Record<string, unknown>;
-    expect(manifest).toMatchObject({ id: "crdt-sync", minAppVersion: "1.11.4", isDesktopOnly: false });
+    expect(manifest).toMatchObject({ id: "quilleaf-sync", minAppVersion: "1.11.4", isDesktopOnly: false });
   });
 });
