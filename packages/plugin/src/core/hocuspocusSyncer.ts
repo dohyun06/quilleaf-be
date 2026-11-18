@@ -27,16 +27,16 @@ export const SOCKET_KEEPALIVE_MS = 15_000;
 
 interface Shard {
   socket: HocuspocusProviderWebsocket;
-  docs: number;
   providers: Set<HocuspocusProvider>;
   status: ConnectionStatus;
+  hasConnected: boolean;
+  closed: boolean;
   keepalive: ReturnType<typeof setInterval>;
 }
 
 /** Documents share WebSockets (multiplexing), at most DOCS_PER_SOCKET each. */
 export class HocuspocusSyncer implements DocSyncer {
   private readonly shards: Shard[] = [];
-  private readonly providers = new Set<HocuspocusProvider>();
   private authFailed = false;
   private paused = false;
   private reported: ConnectionStatus | null = null;
@@ -46,8 +46,7 @@ export class HocuspocusSyncer implements DocSyncer {
   }
 
   connect(docName: string, doc: Y.Doc): DocSyncHandle {
-    const shard = this.shards.find((s) => s.docs < DOCS_PER_SOCKET) ?? this.addShard();
-    shard.docs++;
+    const shard = this.shards.find((s) => s.providers.size < DOCS_PER_SOCKET) ?? this.addShard();
     const provider = new HocuspocusProvider({
       websocketProvider: shard.socket,
       name: docName,
@@ -59,17 +58,15 @@ export class HocuspocusSyncer implements DocSyncer {
     // subscribed doc (thousands of notes → constant awareness traffic). attachSync publishes it on bind.
     provider.awareness?.setLocalState(null);
     provider.attach();
-    this.providers.add(provider);
     shard.providers.add(provider);
     return {
       awareness: provider.awareness ?? null,
       isSynced: () => provider.isSynced,
       whenSynced: () => waitForSynced(provider),
       destroy: () => {
-        if (!this.providers.delete(provider)) return;
+        if (!shard.providers.delete(provider)) return;
         provider.destroy();
-        shard.providers.delete(provider);
-        shard.docs--;
+        if (shard.providers.size === 0) this.removeShard(shard);
       },
     };
   }
@@ -92,36 +89,52 @@ export class HocuspocusSyncer implements DocSyncer {
   }
 
   destroy(): void {
-    for (const provider of this.providers) provider.destroy();
-    this.providers.clear();
-    for (const { socket, keepalive } of this.shards) {
-      clearInterval(keepalive);
-      socket.destroy();
+    for (const shard of [...this.shards]) {
+      for (const provider of shard.providers) provider.destroy();
+      this.removeShard(shard);
     }
-    this.shards.length = 0;
   }
 
   private addShard(): Shard {
     // made before its socket, which may report a status while it is constructed
-    const shard = { docs: 0, providers: new Set(), status: "connecting" } as unknown as Shard;
+    const shard = { providers: new Set(), status: "connecting", hasConnected: false, closed: false } as unknown as Shard;
     shard.socket = new HocuspocusProviderWebsocket({
       url: this.options.url,
       maxDelay: RECONNECT_MAX_DELAY_MS,
       // a socket added while paused or after an auth failure stays down like the others
       autoConnect: !this.paused && !this.authFailed,
-      onStatus: ({ status }) => {
-        shard.status = status as ConnectionStatus;
-        this.reportStatus();
-      },
+      onStatus: ({ status }) => this.onShardStatus(shard, status as ConnectionStatus),
     });
     shard.keepalive = setInterval(() => keepAlive(shard), SOCKET_KEEPALIVE_MS);
     this.shards.push(shard);
     return shard;
   }
 
-  /** One status for all sockets: connected only when every socket is. */
+  /** Marked closed first: the socket reports "disconnected" while it is destroyed. */
+  private removeShard(shard: Shard): void {
+    const position = this.shards.indexOf(shard);
+    if (position >= 0) this.shards.splice(position, 1);
+    shard.closed = true;
+    clearInterval(shard.keepalive);
+    shard.providers.clear();
+    shard.socket.destroy();
+  }
+
+  private onShardStatus(shard: Shard, status: ConnectionStatus): void {
+    if (shard.closed) return;
+    shard.status = status;
+    if (status === "connected") shard.hasConnected = true;
+    this.reportStatus();
+  }
+
+  /**
+   * One status for all sockets: connected only when every socket is. A socket still making its first connection
+   * does not turn a connected syncer back to "connecting" (one more socket per DOCS_PER_SOCKET documents opened).
+   */
   private reportStatus(): void {
-    const all = this.shards.map((s) => s.status);
+    const settled = this.shards.filter((s) => s.hasConnected || s.status !== "connecting");
+    const all = (settled.length > 0 ? settled : this.shards).map((s) => s.status);
+    if (all.length === 0) return;
     const status: ConnectionStatus = all.every((s) => s === "connected") ? "connected" : all.includes("disconnected") ? "disconnected" : "connecting";
     if (status === this.reported) return;
     this.reported = status;
