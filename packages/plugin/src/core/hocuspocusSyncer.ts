@@ -19,10 +19,18 @@ export interface HocuspocusSyncerOptions {
  */
 export const DOCS_PER_SOCKET = 64;
 
+/**
+ * The provider closes a socket that received nothing for 30 s (`messageReconnectTimeout`), the server one that sent
+ * nothing for 60 s. Awareness renewals keep only sockets with a bound editor busy, so every socket sends this often.
+ */
+export const SOCKET_KEEPALIVE_MS = 15_000;
+
 interface Shard {
   socket: HocuspocusProviderWebsocket;
   docs: number;
+  providers: Set<HocuspocusProvider>;
   status: ConnectionStatus;
+  keepalive: ReturnType<typeof setInterval>;
 }
 
 /** Documents share WebSockets (multiplexing), at most DOCS_PER_SOCKET each. */
@@ -52,6 +60,7 @@ export class HocuspocusSyncer implements DocSyncer {
     provider.awareness?.setLocalState(null);
     provider.attach();
     this.providers.add(provider);
+    shard.providers.add(provider);
     return {
       awareness: provider.awareness ?? null,
       isSynced: () => provider.isSynced,
@@ -59,6 +68,7 @@ export class HocuspocusSyncer implements DocSyncer {
       destroy: () => {
         if (!this.providers.delete(provider)) return;
         provider.destroy();
+        shard.providers.delete(provider);
         shard.docs--;
       },
     };
@@ -84,13 +94,16 @@ export class HocuspocusSyncer implements DocSyncer {
   destroy(): void {
     for (const provider of this.providers) provider.destroy();
     this.providers.clear();
-    for (const { socket } of this.shards) socket.destroy();
+    for (const { socket, keepalive } of this.shards) {
+      clearInterval(keepalive);
+      socket.destroy();
+    }
     this.shards.length = 0;
   }
 
   private addShard(): Shard {
     // made before its socket, which may report a status while it is constructed
-    const shard = { docs: 0, status: "connecting" } as Shard;
+    const shard = { docs: 0, providers: new Set(), status: "connecting" } as unknown as Shard;
     shard.socket = new HocuspocusProviderWebsocket({
       url: this.options.url,
       maxDelay: RECONNECT_MAX_DELAY_MS,
@@ -101,6 +114,7 @@ export class HocuspocusSyncer implements DocSyncer {
         this.reportStatus();
       },
     });
+    shard.keepalive = setInterval(() => keepAlive(shard), SOCKET_KEEPALIVE_MS);
     this.shards.push(shard);
     return shard;
   }
@@ -121,6 +135,13 @@ export class HocuspocusSyncer implements DocSyncer {
     for (const { socket } of this.shards) socket.disconnect();
     this.options.onAuthFailed();
   }
+}
+
+/** A sync step 1 the server always answers: traffic both ways, without presence (see SOCKET_KEEPALIVE_MS). */
+function keepAlive(shard: Shard): void {
+  if (shard.status !== "connected") return; // the provider queues messages while disconnected
+  const [provider] = shard.providers;
+  provider?.forceSync();
 }
 
 function waitForSynced(provider: HocuspocusProvider): Promise<void> {
