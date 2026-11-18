@@ -1,6 +1,7 @@
-# Obsidian CRDT Sync
+# quilleaf-be
 
-Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 플러그인입니다 (Yjs + Hocuspocus).
+Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편집하는 동기화 서버와 Obsidian 플러그인(CRDT Sync)입니다 (Yjs + Hocuspocus).
+같은 서버를 quilleaf 앱도 씁니다.
 
 - 설계: [docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md](docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md)
 - 서버 배포: [deploy/README.md](deploy/README.md)
@@ -9,6 +10,8 @@ Obsidian 노트를 여러 기기에서 충돌 없이 실시간으로 함께 편�
 ## 개발
 
 ```bash
+git clone https://github.com/dohyun06/quilleaf-be.git
+cd quilleaf-be
 npm install
 npm run check
 npm run build -w @obsidian-crdt/plugin
