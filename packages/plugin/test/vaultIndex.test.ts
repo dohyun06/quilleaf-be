@@ -102,17 +102,17 @@ describe("VaultIndex", () => {
     expect(new VaultIndex(doc).entries()).toEqual([]);
   });
 
-  it("ignores remote entries whose path Windows would resolve outside the vault", () => {
+  it("keeps entries whose names only Windows cannot hold; the Windows vault adapter refuses to write them", () => {
     const doc = new Y.Doc();
     const files = doc.getMap<Y.Map<unknown>>("files");
-    for (const [fileId, path] of [[ID_A, "..\\..\\outside.md"], [ID_B, "C:outside.md"], [ID_C, ".. /outside.md"]] as const) {
+    for (const [fileId, path] of [[ID_A, "Misc./a.md"], [ID_B, "C:outside.md"], [ID_C, "ab:c.md"]] as const) {
       const entry = new Y.Map<unknown>();
       files.set(fileId, entry);
       entry.set("path", path);
       entry.set("deleted", false);
       entry.set("createdAt", CREATED);
     }
-    expect(new VaultIndex(doc).entries()).toEqual([]);
+    expect(new VaultIndex(doc).entries().map((entry) => entry.path)).toEqual(["Misc./a.md", "ab:c.md"]);
   });
 
   it("treats paths that differ only in letter case as a collision", () => {

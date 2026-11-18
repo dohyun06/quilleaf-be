@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { VaultEvent } from "../src/core/ports";
-import { FileNotFoundError, ObsidianVaultAdapter } from "../src/obsidian/vaultAdapter";
+import { FileNotFoundError, ObsidianVaultAdapter, UnwritablePathError } from "../src/obsidian/vaultAdapter";
 import { FakeObsidianVault } from "./fakes/fakeObsidianVault";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -66,6 +66,25 @@ describe("ObsidianVaultAdapter", () => {
     await adapter.rename("a.md", "x/y/b.md");
     expect(vault.files.get("x/y/b.md")?.data).toBe("A");
     await expect(adapter.rename("nope.md", "z.md")).rejects.toBeInstanceOf(FileNotFoundError);
+  });
+
+  it("on Windows, refuses to create or move to names Windows writes elsewhere, even outside the vault", async () => {
+    const vault = new FakeObsidianVault();
+    const adapter = new ObsidianVaultAdapter(vault, { windows: true });
+    vault.seed("a.md", "A");
+    for (const path of ["..\\..\\outside.md", "C:outside.md", ".. /outside.md", "Misc./a.md", "a.md:stream"]) {
+      await expect(adapter.replace(path, null, "x"), path).rejects.toBeInstanceOf(UnwritablePathError);
+      await expect(adapter.rename("a.md", path), path).rejects.toBeInstanceOf(UnwritablePathError);
+    }
+    expect([...vault.files.keys()]).toEqual(["a.md"]);
+    expect(await adapter.replace("ok.md", null, "x")).toBe(true);
+  });
+
+  it("elsewhere, writes names only Windows rejects but still refuses a backslash", async () => {
+    const { vault, adapter } = setup();
+    expect(await adapter.replace("Misc./a.md", null, "x")).toBe(true);
+    await expect(adapter.replace("..\\..\\outside.md", null, "x")).rejects.toBeInstanceOf(UnwritablePathError);
+    expect([...vault.files.keys()]).toEqual(["Misc./a.md"]);
   });
 
   it("moves deletions to the vault trash", async () => {

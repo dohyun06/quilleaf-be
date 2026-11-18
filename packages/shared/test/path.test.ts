@@ -3,6 +3,7 @@ import {
   foldPathCase,
   isSafeRelativePath,
   isSyncablePath,
+  isWindowsSafePath,
   isWithinSizeLimit,
   MAX_SYNC_FILE_BYTES,
   normalizeVaultPath,
@@ -27,7 +28,11 @@ describe("vault paths", () => {
     expect(isSafeRelativePath("notes/a.md")).toBe(true);
   });
 
-  it("rejects names Windows cannot hold or resolves elsewhere: backslash, colon, trailing dot or space", () => {
+  it("keeps reading names other clients sync, even ones Windows cannot hold (regression: delete and ghost paths)", () => {
+    for (const path of ["Misc./a.md", "notes /a.md", "ab:c.md", "a.md.", "a\\b.md"]) expect(isSafeRelativePath(path), path).toBe(true);
+  });
+
+  it("flags names Windows cannot hold or resolves elsewhere: backslash, colon, trailing dot or space", () => {
     const bad = [
       "a\\b.md",
       "..\\..\\outside.md",
@@ -42,12 +47,12 @@ describe("vault paths", () => {
       "...",
       "a/b.md\t ",
     ];
-    for (const path of bad) expect(isSafeRelativePath(path), path).toBe(false);
+    for (const path of bad) expect(isWindowsSafePath(path), path).toBe(false);
   });
 
-  it("keeps names that only look close to the Windows rules", () => {
+  it("accepts names that only look close to the Windows rules", () => {
     const good = [".hidden.md", " leading space.md", "a b.md", "a.b.md", "notes.d/a.md", "a. .md", "한글.md", "x/.config/y.md"];
-    for (const path of good) expect(isSafeRelativePath(path), path).toBe(true);
+    for (const path of good) expect(isWindowsSafePath(path), path).toBe(true);
   });
 
   it("syncs markdown outside excluded folders only", () => {

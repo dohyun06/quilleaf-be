@@ -1,4 +1,4 @@
-import { editorInfoField, MarkdownView, Notice, Plugin } from "obsidian";
+import { editorInfoField, MarkdownView, Notice, Platform, Plugin } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { HocuspocusSyncer } from "./core/hocuspocusSyncer";
 import type { SyncNotice } from "./core/notices";
@@ -141,7 +141,7 @@ export default class CrdtSyncPlugin extends Plugin {
   private createSession(config: SessionConfig): SyncSession {
     const session: SyncSession = new SyncSession({
       config,
-      vault: new ObsidianVaultAdapter(this.app.vault),
+      vault: new ObsidianVaultAdapter(this.app.vault, { windows: Platform.isWin }),
       openStorage: (cfg) => this.openStorage(cfg),
       createSyncer: (cfg, handlers) => new HocuspocusSyncer({ url: cfg.serverUrl, token: cfg.token, ...handlers }),
       isOpenInEditor: (path) => this.bridge?.isOpen(path) ?? false,
