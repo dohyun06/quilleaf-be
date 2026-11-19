@@ -1,3 +1,8 @@
+# Runs behind the shared Caddy from the infra repo, which reaches this
+# service as sync-server:1234 on the external `proxy` network.
+# The project name stays `deploy` so the existing deploy_sync-data volume is reused.
+name: deploy
+
 services:
   sync-server:
     build:
@@ -9,26 +14,7 @@ services:
       DB_PATH: /app/data/sync.db
     volumes:
       - sync-data:/app/data
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  caddy:
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      SYNC_DOMAIN: ${SYNC_DOMAIN:?set SYNC_DOMAIN in deploy/.env}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - sync-server
+    networks: [default, proxy]
     restart: unless-stopped
     logging:
       driver: json-file
@@ -38,5 +24,7 @@ services:
 
 volumes:
   sync-data: {}
-  caddy-data: {}
-  caddy-config: {}
+
+networks:
+  proxy:
+    external: true

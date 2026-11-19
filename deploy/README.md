@@ -1,22 +1,17 @@
 # 동기화 서버 배포 (Oracle Free Tier VM)
 
-## 1. 준비
-- VM에 Docker와 Docker Compose 플러그인 설치
-- 도메인(또는 DDNS)의 A 레코드를 VM 공인 IP로 지정
-- OCI 콘솔 → VCN → Security List에 TCP 80, 443 인그레스 허용
-- Ubuntu 이미지는 iptables가 기본으로 막고 있으므로 열어준다:
+## 1. 구성
+- 서버는 OCI VM에서 `infra` 레포의 공용 Caddy 뒤에서 돈다. Caddy가 `dohyun06.is-a.dev/sync/*`를 외부 Docker 네트워크 `proxy`의 `sync-server:1234`로 넘긴다.
+- 이 compose는 포트를 열지 않고 `proxy` 네트워크에만 붙는다. 프로젝트 이름은 `deploy`로 고정되어 있어 기존 `deploy_sync-data` 볼륨을 그대로 쓴다.
 
-```bash
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-sudo netfilter-persistent save
-```
+## 2. 배포
+- `main`에 push하면 `.github/workflows/deploy.yml`이 검사 후 SSH로 서버의 `~/obsidian-crdt`에서 `git merge --ff-only`와 `docker compose up -d --build`를 실행한다. Actions 탭에서 수동 실행도 된다.
+- 레포 secret `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_TARGET`이 필요하다(다른 서비스 레포와 같은 값).
+- 처음 설치하거나 손으로 띄울 때:
 
-## 2. 실행
 ```bash
 git clone https://github.com/dohyun06/quilleaf-be.git
 cd quilleaf-be/deploy
-cp .env.example .env   # SYNC_DOMAIN 수정
 docker compose up -d --build
 ```
 
@@ -42,5 +37,5 @@ docker compose exec sync-server node -e "require('node:fs').rmSync('/app/data/ba
 `./sync-backup.db`는 그 자체로 완결된 SQLite 파일이다. 확인: `sqlite3 sync-backup.db 'PRAGMA integrity_check;'`
 
 ## 5. 보안 메모
-- Hocuspocus는 compose 내부 네트워크에만 열려 있고, 외부는 Caddy(80/443)만 노출된다.
+- Hocuspocus는 포트를 열지 않는다. 외부 접근은 공용 Caddy(80/443)를 거친다.
 - 로그에는 토큰과 노트 내용이 남지 않는다.
