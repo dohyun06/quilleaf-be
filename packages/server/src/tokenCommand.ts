@@ -31,7 +31,7 @@ function createToken(vaultId: string, tokens: TokenStore, write: (line: string) 
     write(`tokenId: ${issued.tokenId}`);
     write(`vaultId: ${issued.vaultId}`);
     write(`token: ${issued.token}`);
-    write("Store this token in the plugin settings now. It cannot be shown again.");
+    write("Store this token in the client settings now. It cannot be shown again.");
     return EXIT_OK;
   } catch (error) {
     if (!(error instanceof InvalidVaultIdError)) throw error;
