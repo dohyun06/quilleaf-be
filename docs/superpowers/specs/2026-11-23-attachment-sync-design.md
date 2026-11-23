@@ -26,7 +26,7 @@
 - 볼트별 저장 용량 할당(quota), 종단간 암호화
 
 **Constraints**
-- 배포 구성 유지: compose 프로젝트 `deploy`, 볼륨 `deploy_sync-data`(`/app/data`), 기존 환경 변수 그대로. 새 환경 변수는 선택이며 기본값이 있다.
+- 배포 구성 유지: compose 프로젝트 `quilleaf`, 볼륨 `quilleaf_sync-data`(`/app/data`), 기존 환경 변수 그대로. 새 환경 변수는 선택이며 기본값이 있다.
 - Caddy는 `handle @sync`(`/sync`, `/sync/*`)로 `sync-server:1234`에 넘기며 **접두사를 떼지 않는다** (`infra/caddy/sites/portfolio.caddy`). 서버는 `/sync/blobs/...`를 받는다.
 - 첨부 하나 최대 50 MiB. 휴대폰(Android) 메모리에 50 MiB를 여러 번 복사하지 않는다.
 
@@ -211,7 +211,7 @@ AttachmentRecord[attachmentId] = {
 
 ## 7. 서버 저장소와 GC
 
-- 위치: `BLOB_DIR`(선택 환경 변수), 기본값은 DB 옆 `blobs/` → 배포에서는 `/app/data/blobs/<vaultId>/<sha256>`. 같은 `deploy_sync-data` 볼륨이라 compose 변경이 없다.
+- 위치: `BLOB_DIR`(선택 환경 변수), 기본값은 DB 옆 `blobs/` → 배포에서는 `/app/data/blobs/<vaultId>/<sha256>`. 같은 `quilleaf_sync-data` 볼륨이라 compose 변경이 없다.
 - 쓰기: 같은 폴더의 `<sha256>.<uuid>.tmp`에 스트리밍하며 해시 → 일치하면 `rename`. 읽는 쪽은 반쯤 쓴 블롭을 보지 못한다. 같은 블롭의 동시 업로드는 각자 임시 파일을 쓰고 같은 바이트로 rename한다.
 - 내용 주소라 같은 파일은 한 번만 저장된다(다른 경로, 다른 기기).
 - **GC 결정: 하지 않는다.** 블롭은 지우지 않는다.

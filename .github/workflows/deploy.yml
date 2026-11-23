@@ -44,7 +44,7 @@ jobs:
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
           ssh -i ~/.ssh/deploy_key "$SSH_TARGET" "SHA=$GITHUB_SHA bash -s" <<'REMOTE'
           set -euo pipefail
-          cd ~/obsidian-crdt
+          cd ~/quilleaf-be
           git fetch -q origin
           git merge -q --ff-only "$SHA"
           cd deploy

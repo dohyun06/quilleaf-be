@@ -2,10 +2,10 @@
 
 ## 1. 구성
 - 서버는 OCI VM에서 `infra` 레포의 공용 Caddy 뒤에서 돈다. Caddy가 `dohyun06.is-a.dev/sync/*`를 외부 Docker 네트워크 `proxy`의 `sync-server:1234`로 넘긴다.
-- 이 compose는 포트를 열지 않고 `proxy` 네트워크에만 붙는다. 프로젝트 이름은 `deploy`로 고정되어 있어 기존 `deploy_sync-data` 볼륨을 그대로 쓴다.
+- 이 compose는 포트를 열지 않고 `proxy` 네트워크에만 붙는다. 프로젝트 이름은 `quilleaf`로 고정되어 있어 볼륨은 어디에 clone하든 `quilleaf_sync-data`다.
 
 ## 2. 배포
-- `main`에 push하면 `.github/workflows/deploy.yml`이 검사 후 SSH로 서버의 `~/obsidian-crdt`에서 `git merge --ff-only`와 `docker compose up -d --build`를 실행한다. Actions 탭에서 수동 실행도 된다.
+- `main`에 push하면 `.github/workflows/deploy.yml`이 검사 후 SSH로 서버의 `~/quilleaf-be`에서 `git merge --ff-only`와 `docker compose up -d --build`를 실행한다. Actions 탭에서 수동 실행도 된다.
 - 레포 secret `SSH_KEY`, `SSH_KNOWN_HOSTS`, `SSH_TARGET`이 필요하다(다른 서비스 레포와 같은 값).
 - 처음 설치하거나 손으로 띄울 때:
 

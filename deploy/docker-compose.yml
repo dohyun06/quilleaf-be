@@ -1,7 +1,7 @@
 # Runs behind the shared Caddy from the infra repo, which reaches this
 # service as sync-server:1234 on the external `proxy` network.
-# The project name stays `deploy` so the existing deploy_sync-data volume is reused.
-name: deploy
+# Fixed project name: the volume is quilleaf_sync-data wherever the repo is cloned.
+name: quilleaf
 
 services:
   sync-server:
