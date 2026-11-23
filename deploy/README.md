@@ -19,7 +19,7 @@ docker compose up -d --build
 ```bash
 docker compose exec sync-server node packages/server/dist/token.js token create my-vault-01
 ```
-출력된 `token:` 값은 한 번만 표시된다. 플러그인 설정에 바로 입력한다.
+출력된 `token:` 값은 한 번만 표시된다. quilleaf 앱의 서버 동기화 설정에 바로 입력한다.
 
 폐기와 목록:
 ```bash

@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 5.9, Node ≥ 24 (`node:sqlite`, global `WebSocket`), Vitest 5, Yjs 13.6, @hocuspocus/server + provider + extension-database 4.7, diff-match-patch 1.0.5, esbuild 0.28, Docker Compose + Caddy 2.
 
-**Spec:** `docs/superpowers/specs/2026-10-07-obsidian-crdt-sync-design.md`
+**Spec:** `docs/superpowers/specs/2026-10-07-quilleaf-sync-design.md`
 
 ## Global Constraints
 
