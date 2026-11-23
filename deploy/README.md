@@ -36,6 +36,12 @@ docker compose exec sync-server node -e "require('node:fs').rmSync('/app/data/ba
 ```
 `./sync-backup.db`는 그 자체로 완결된 SQLite 파일이다. 확인: `sqlite3 sync-backup.db 'PRAGMA integrity_check;'`
 
+첨부파일 블롭은 같은 볼륨의 `/app/data/blobs/<vaultId>/<sha256>`에 있다(환경 변수 `BLOB_DIR`로 바꿀 수 있고, 기본값은 DB 옆 `blobs/`). 파일 이름이 내용의 해시이고 한 번 쓰면 바뀌지 않아서 그대로 복사하면 된다. 서버는 블롭을 지우지 않는다(GC 없음).
+```bash
+docker compose cp sync-server:/app/data/blobs ./sync-blobs
+```
+
 ## 5. 보안 메모
 - Hocuspocus는 포트를 열지 않는다. 외부 접근은 공용 Caddy(80/443)를 거친다.
 - 로그에는 토큰과 노트 내용이 남지 않는다.
+- 첨부 블롭 API(`/sync/blobs/...`)도 같은 볼트 토큰(`Authorization: Bearer`)으로만 열린다. 파일 하나 최대 50 MiB. 설계: `docs/superpowers/specs/2026-11-23-attachment-sync-design.md`
