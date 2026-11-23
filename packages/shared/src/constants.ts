@@ -18,3 +18,11 @@ export const INDEX_DOC_KEY = "index";
 
 export const SYNCABLE_EXTENSION = ".md";
 export const EXCLUDED_PATH_PREFIXES: readonly string[] = [".obsidian/", ".trash/", ".git/"];
+
+/** Second root map of the index doc: attachments (every synced non-.md file). Old clients read only `files`. */
+export const INDEX_ATTACHMENTS_MAP_KEY = "attachments";
+export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+/** Path segment of the blob HTTP endpoints, appended to the server URL's path. */
+export const BLOB_ROUTE_SEGMENT = "blobs";
+/** OS metadata files never synced as attachments, compared case-insensitively. */
+export const EXCLUDED_ATTACHMENT_FILE_NAMES: readonly string[] = ["thumbs.db", "desktop.ini"];
