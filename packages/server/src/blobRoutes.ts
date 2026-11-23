@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { pipeline } from "node:stream/promises";
+import { finished, pipeline } from "node:stream/promises";
 import { type BlobRoute, MAX_ATTACHMENT_BYTES, parseBlobRoute } from "@quilleaf/shared";
 import { BlobHashMismatchError, type BlobStore, BlobTooLargeError } from "./blobStore";
 import type { Logger } from "./logger";
@@ -53,6 +53,8 @@ async function upload(req: IncomingMessage, res: ServerResponse, route: BlobRout
   if (Number(declared) > MAX_ATTACHMENT_BYTES) return send(req, res, 413);
   const result = await deps.blobs.write(route.vaultId, route.sha256, req, MAX_ATTACHMENT_BYTES);
   if (result === "created") deps.logger.log("info", "blob.stored", { vaultId: route.vaultId, sha256: route.sha256, bytes: Number(declared) });
+  // a success must be readable: closing on an unread body resets the client's upload (and gives a 502 behind Caddy)
+  else await finished(req.resume());
   send(req, res, result === "created" ? 201 : 200);
 }
 
@@ -67,7 +69,7 @@ function respondToFailure(req: IncomingMessage, res: ServerResponse, route: Blob
   send(req, res, 500);
 }
 
-/** An unread request body is not drained: the connection closes instead, so a refused 50 MiB upload costs nothing. */
+/** A refusal does not drain the body: the connection closes instead (a client sending `Expect: 100-continue` has already been told to send it). */
 function send(req: IncomingMessage, res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
   if (!req.complete) res.setHeader("connection", "close");
   res.writeHead(status, headers).end();

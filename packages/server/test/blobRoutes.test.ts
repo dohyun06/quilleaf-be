@@ -73,6 +73,15 @@ describe("blob endpoints", () => {
     expect(logs.join("\n")).not.toContain(token);
   });
 
+  it("answers 200 to a large re-upload of a stored blob after reading its body", async () => {
+    const { token, urlFor } = await start();
+    const data = new Uint8Array(4 * 1024 * 1024).fill(7);
+    const sha = await sha256Hex(data);
+    expect((await fetch(urlFor(sha), { method: "PUT", headers: auth(token), body: data })).status).toBe(201);
+    const headers = { ...auth(token), "content-length": String(data.length) };
+    expect(await rawPut(urlFor(sha), headers, data)).toBe(200);
+  });
+
   it("also serves the route without the proxy prefix", async () => {
     const { token, urlFor } = await start();
     const sha = await sha256Hex(bytes("a"));
