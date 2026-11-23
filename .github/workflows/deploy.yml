@@ -44,12 +44,6 @@ jobs:
           [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
           ssh -i ~/.ssh/deploy_key "$SSH_TARGET" "SHA=$GITHUB_SHA bash -s" <<'REMOTE'
           set -euo pipefail
-          # shortcut: one-time move off the old obsidian-crdt names (its volume held no data in use); delete after it ran
-          if [ -d ~/obsidian-crdt ] && [ ! -e ~/quilleaf-be ]; then
-            (cd ~/obsidian-crdt/deploy && docker compose -p deploy down -v --remove-orphans)
-            rm -f ~/obsidian-crdt/deploy/docker-compose.override.yml
-            mv ~/obsidian-crdt ~/quilleaf-be
-          fi
           cd ~/quilleaf-be
           git fetch -q origin
           git merge -q --ff-only "$SHA"
