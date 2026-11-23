@@ -1,4 +1,6 @@
 export * from "./authorize";
+export * from "./blobRoutes";
+export * from "./blobStore";
 export * from "./config";
 export * from "./db";
 export * from "./documentStore";

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { join } from "node:path";
 import { InvalidConfigError, readServerConfig } from "../src/config";
 import { openDatabase } from "../src/db";
 import { createJsonLogger } from "../src/logger";
@@ -13,15 +14,20 @@ function run(args: string[], tokens = new TokenStore(openDatabase(":memory:"))) 
 
 describe("readServerConfig", () => {
   it("uses defaults", () => {
-    expect(readServerConfig({})).toEqual({ port: 1234, address: "127.0.0.1", dbPath: "./data/sync.db" });
+    expect(readServerConfig({})).toEqual({ port: 1234, address: "127.0.0.1", dbPath: "./data/sync.db", blobDir: join("data", "blobs") });
   });
 
   it("reads overrides", () => {
-    expect(readServerConfig({ PORT: "4000", HOST: "0.0.0.0", DB_PATH: "/data/x.db" })).toEqual({
+    expect(readServerConfig({ PORT: "4000", HOST: "0.0.0.0", DB_PATH: "/data/x.db", BLOB_DIR: "/b" })).toEqual({
       port: 4000,
       address: "0.0.0.0",
       dbPath: "/data/x.db",
+      blobDir: "/b",
     });
+  });
+
+  it("keeps blobs beside the database by default (the deployed volume)", () => {
+    expect(readServerConfig({ DB_PATH: "/app/data/sync.db" }).blobDir).toBe(join("/app/data", "blobs"));
   });
 
   it("rejects invalid ports", () => {

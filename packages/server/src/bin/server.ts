@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { BlobStore } from "../blobStore";
 import { readServerConfig } from "../config";
 import { openDatabase } from "../db";
 import { DocumentStore } from "../documentStore";
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
     address: config.address,
     documents: new DocumentStore(db),
     tokens: new TokenStore(db),
+    blobs: new BlobStore(config.blobDir),
     logger,
   });
   await server.listen();

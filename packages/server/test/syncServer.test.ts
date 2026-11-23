@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
 import type { DatabaseSync } from "node:sqlite";
 import * as Y from "yjs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { BlobStore } from "../src/blobStore";
 import { openDatabase } from "../src/db";
 import { DocumentStore } from "../src/documentStore";
 import { createJsonLogger } from "../src/logger";
@@ -21,6 +24,7 @@ async function startServer(db: DatabaseSync): Promise<{ server: Server; url: str
     address: "127.0.0.1",
     documents: new DocumentStore(db),
     tokens: new TokenStore(db),
+    blobs: new BlobStore(join(tmpdir(), "quilleaf-unused-blobs")), // these tests never reach the blob routes
     logger: createJsonLogger((line) => logs.push(line)),
     storeDebounceMs: 0,
   });
