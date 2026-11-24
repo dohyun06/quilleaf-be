@@ -27,6 +27,19 @@ docker compose exec sync-server node packages/server/dist/token.js token list
 docker compose exec sync-server node packages/server/dist/token.js token revoke <tokenId>
 ```
 
+## 3-1. 새 기기 연결 (코드 승인)
+새 기기가 서버 주소를 넣고 연결 코드(예: `K7QM-2XPA`)를 보여 주면, 아래 셋 중 하나로 승인한다. 승인되면 그 기기가 자기 토큰을 받아 간다. 첫 기기는 1번이나 3번으로 승인한다. 코드는 10분 동안만 유효하다. 설계: `docs/superpowers/specs/2026-11-24-device-pairing-design.md`
+
+1. GitHub Actions: Actions 탭에서 **Approve device**를 열고 Run workflow를 눌러 `code`와 `vault_id`를 입력한다.
+2. `gh` CLI:
+```bash
+gh workflow run approve-device.yml -f code=K7QM-2XPA -f vault_id=my-vault-01
+```
+3. VM에서 CLI로:
+```bash
+docker compose exec sync-server node packages/server/dist/token.js pair approve K7QM-2XPA my-vault-01
+```
+이미 연결된 기기의 앱에서도 코드를 입력해 승인할 수 있다. 레포가 public이면 Actions 입력값이 공개되지만, 토큰은 새 기기만 받아 갈 수 있어서 코드가 알려져도 안전하다. 기기별 토큰에는 기기 이름이 라벨로 붙고(`token list`에 표시), 수동 발급 때는 `token create <vaultId> [label]`로 라벨을 줄 수 있다.
 ## 4. 백업
 문서와 토큰 해시는 `sync-data` 볼륨의 `/app/data/sync.db`에 있다. 서버가 실행 중이어도 일관된 사본을 얻도록 SQLite의 `VACUUM INTO`로 스냅샷을 만든 뒤 꺼낸다. (DB가 WAL 모드라 파일을 그대로 tar로 묶으면 쓰기 도중의 상태가 담길 수 있다.)
 ```bash
