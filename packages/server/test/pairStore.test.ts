@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PAIR_MAX_PENDING, PAIR_MAX_PENDING_PER_CLIENT } from "@quilleaf/shared";
 import { mkdtempSync, rmSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
@@ -16,9 +17,17 @@ function setup() {
 }
 
 describe("PairStore", () => {
+  it("caps pending requests per client and overall", () => {
+    const { pairs } = setup();
+    for (let i = 0; i < PAIR_MAX_PENDING_PER_CLIENT; i++) expect(pairs.request("a", "one")).not.toBeNull();
+    expect(pairs.request("a", "one")).toBeNull();
+    for (let i = PAIR_MAX_PENDING_PER_CLIENT; i < PAIR_MAX_PENDING; i++) expect(pairs.request("a", `client-${i}`)).not.toBeNull();
+    expect(pairs.request("a", "fresh")).toBeNull();
+  });
+
   it("stores only hashes of the code and secret", () => {
     const { db, pairs } = setup();
-    const created = pairs.request("Pixel")!;
+    const created = pairs.request("Pixel", "203.0.113.7")!;
     const row = db.prepare("SELECT code_hash, secret_hash FROM pair_requests").get() as { code_hash: string; secret_hash: string };
     expect(JSON.stringify(row)).not.toContain(created.code);
     expect(JSON.stringify(row)).not.toContain(created.secret);
@@ -27,14 +36,14 @@ describe("PairStore", () => {
   it("normalizes the typed code (case, hyphen, O/I/L)", () => {
     const { pairs } = setup();
     // force a code that has look-alike characters when typed: 0 and 1 may be typed as O and I/L
-    const created = pairs.request("Pixel")!;
+    const created = pairs.request("Pixel", "203.0.113.7")!;
     const typed = created.code.toLowerCase().replace(/0/g, "o").replace(/1/g, "l");
     expect(pairs.approve(`${typed.slice(0, 4)}-${typed.slice(4)}`, "my-vault-01")).toEqual({ deviceName: "Pixel" });
   });
 
   it("rejects an invalid vault id on approve", () => {
     const { pairs } = setup();
-    const created = pairs.request("Pixel")!;
+    const created = pairs.request("Pixel", "203.0.113.7")!;
     expect(() => pairs.approve(created.code, "Bad Vault")).toThrow();
   });
 });
@@ -65,10 +74,10 @@ describe("tokens.label migration", () => {
 describe("CLI", () => {
   it("pair approve approves a pending request, then fails for it a second time", () => {
     const { pairs } = setup();
-    const created = pairs.request("Pixel")!;
+    const created = pairs.request("Pixel", "203.0.113.7")!;
     const lines: string[] = [];
     expect(runPairCommand(["pair", "approve", created.code, "my-vault-01"], pairs, (l) => lines.push(l))).toBe(0);
-    expect(lines.join("\n")).toContain("approved Pixel");
+    expect(lines).toEqual(["approved"]);
     expect(pairs.claim(created.secret)).toMatchObject({ status: "approved", vaultId: "my-vault-01" });
     expect(runPairCommand(["pair", "approve", created.code, "my-vault-01"], pairs, () => {})).toBe(1);
   });

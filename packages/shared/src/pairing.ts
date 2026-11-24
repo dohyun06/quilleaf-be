@@ -9,7 +9,9 @@ export const PAIR_CODE_LENGTH = 8;
 /** Crockford base32: no I, L, O, U. */
 export const PAIR_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 export const PAIR_TTL_MS = 10 * 60_000;
-export const PAIR_MAX_PENDING = 20;
+/** Bounds storage only; the per-client limit is what keeps one caller from crowding others out. */
+export const PAIR_MAX_PENDING = 500;
+export const PAIR_MAX_PENDING_PER_CLIENT = 3;
 export const PAIR_MAX_BODY_BYTES = 1024;
 export const PAIR_MAX_DEVICE_NAME_LENGTH = 100;
 

@@ -16,7 +16,8 @@ export function runPairCommand(args: readonly string[], pairs: PairStore, write:
       write("no pending pairing request with that code (unknown, expired or already approved)");
       return EXIT_FAILED;
     }
-    write(`approved ${approved.deviceName} for vault ${vaultId}`);
+    // the approve workflow prints this to a public Actions log: no device name or vault ID
+    write("approved");
     return EXIT_OK;
   } catch (error) {
     if (!(error instanceof InvalidVaultIdError)) throw error;

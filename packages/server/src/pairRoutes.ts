@@ -56,7 +56,7 @@ function request(req: IncomingMessage, res: ServerResponse, body: Record<string,
   if (deviceName.length === 0 || deviceName.length > PAIR_MAX_DEVICE_NAME_LENGTH || CONTROL_CHARACTERS.test(deviceName)) {
     throw new HttpStatusError(400);
   }
-  const created = deps.pairs.request(deviceName);
+  const created = deps.pairs.request(deviceName, clientAddress(req));
   if (!created) {
     deps.logger.log("warn", "pair.rejected", { reason: "too-many-pending" });
     return send(req, res, 429);
@@ -71,6 +71,13 @@ function claim(req: IncomingMessage, res: ServerResponse, body: Record<string, u
   if (result.status === "pending") return send(req, res, 202);
   deps.logger.log("info", "pair.claimed", { vaultId: result.vaultId, tokenId: result.tokenId });
   sendJson(req, res, 200, { vaultId: result.vaultId, token: result.token });
+}
+
+/** Caddy (the only way in; the container publishes no port) replaces X-Forwarded-For with the peer address. */
+function clientAddress(req: IncomingMessage): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const last = (Array.isArray(forwarded) ? forwarded.join(",") : forwarded ?? "").split(",").pop()?.trim();
+  return last || req.socket.remoteAddress || "unknown";
 }
 
 function requireString(value: unknown): string {

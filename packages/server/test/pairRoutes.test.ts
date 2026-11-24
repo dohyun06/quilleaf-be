@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildPairUrl, PAIR_MAX_PENDING, PAIR_TTL_MS } from "@quilleaf/shared";
+import { buildPairUrl, PAIR_MAX_PENDING_PER_CLIENT, PAIR_TTL_MS } from "@quilleaf/shared";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BlobStore } from "../src/blobStore";
@@ -97,12 +97,17 @@ describe("pairing endpoints", () => {
     expect((await s.post("claim", { secret: body.secret })).status).toBe(404);
   });
 
-  it("answers 429 at the pending cap and recovers after expiry", async () => {
+  it("limits pending requests per client address, not for everyone, and recovers after expiry", async () => {
     const s = await start();
-    for (let i = 0; i < PAIR_MAX_PENDING; i++) expect((await requestPair(s)).res.status).toBe(201);
-    expect((await requestPair(s)).res.status).toBe(429);
+    const from = (ip: string) =>
+      fetch(buildPairUrl(s.serverUrl, "request"), { method: "POST", headers: { "x-forwarded-for": ip }, body: JSON.stringify({ deviceName: "x" }) });
+    for (let i = 0; i < PAIR_MAX_PENDING_PER_CLIENT; i++) expect((await from("198.51.100.1")).status).toBe(201);
+    expect((await from("198.51.100.1")).status).toBe(429);
+    // a spoofed first hop does not help: the proxy's own (last) entry counts
+    expect((await from("192.0.2.9, 198.51.100.1")).status).toBe(429);
+    expect((await from("198.51.100.2")).status).toBe(201);
     s.advance(PAIR_TTL_MS);
-    expect((await requestPair(s)).res.status).toBe(201);
+    expect((await from("198.51.100.1")).status).toBe(201);
   });
 
   it("rejects approve without a valid token with 401 and leaves the request pending", async () => {

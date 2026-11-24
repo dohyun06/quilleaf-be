@@ -34,6 +34,7 @@ jobs:
           # inputs are public and typed by anyone with write access: validate before they go anywhere
           [[ "$CODE" =~ ^[0-9A-Za-z\ -]{8,12}$ ]]
           [[ "$VAULT_ID" =~ ^[a-z0-9-]{8,64}$ ]]
+          echo "::add-mask::$VAULT_ID"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
