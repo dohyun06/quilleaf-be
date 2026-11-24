@@ -1,0 +1,46 @@
+name: Approve device
+
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: Pairing code shown on the new device (e.g. K7QM-2XPA)
+        required: true
+        type: string
+      vault_id:
+        description: Vault ID to connect the device to
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: approve-device
+  cancel-in-progress: false
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_TARGET: ${{ secrets.SSH_TARGET }}
+          CODE: ${{ inputs.code }}
+          VAULT_ID: ${{ inputs.vault_id }}
+        run: |
+          # inputs are public and typed by anyone with write access: validate before they go anywhere
+          [[ "$CODE" =~ ^[0-9A-Za-z\ -]{8,12}$ ]]
+          [[ "$VAULT_ID" =~ ^[a-z0-9-]{8,64}$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          CODE_ARG=$(printf '%s' "$CODE" | tr -d ' -')
+          ssh -i ~/.ssh/deploy_key "$SSH_TARGET" "CODE=$CODE_ARG VAULT_ID=$VAULT_ID bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/quilleaf-be/deploy
+          docker compose exec -T sync-server node packages/server/dist/token.js pair approve "$CODE" "$VAULT_ID"
+          REMOTE
