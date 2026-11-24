@@ -5,6 +5,7 @@ import { readServerConfig } from "../config";
 import { openDatabase } from "../db";
 import { DocumentStore } from "../documentStore";
 import { createJsonLogger } from "../logger";
+import { PairStore } from "../pairStore";
 import { createSyncServer } from "../syncServer";
 import { TokenStore } from "../tokenStore";
 
@@ -14,12 +15,14 @@ async function main(): Promise<void> {
   const config = readServerConfig(process.env);
   mkdirSync(dirname(config.dbPath), { recursive: true });
   const db = openDatabase(config.dbPath);
+  const tokens = new TokenStore(db);
   const server = createSyncServer({
     port: config.port,
     address: config.address,
     documents: new DocumentStore(db),
-    tokens: new TokenStore(db),
+    tokens,
     blobs: new BlobStore(config.blobDir),
+    pairs: new PairStore(db, tokens),
     logger,
   });
   await server.listen();

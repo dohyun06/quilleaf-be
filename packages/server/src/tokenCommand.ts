@@ -2,9 +2,10 @@ import { InvalidVaultIdError, type TokenStore } from "./tokenStore";
 
 const USAGE = [
   "usage:",
-  "  token create <vaultId>   issue a token (shown once)",
-  "  token revoke <tokenId>   revoke a token",
-  "  token list               list tokens (no secrets)",
+  "  token create <vaultId> [label]   issue a token (shown once)",
+  "  token revoke <tokenId>           revoke a token",
+  "  token list                       list tokens (no secrets)",
+  "  pair approve <code> <vaultId>    approve a device showing a pairing code",
 ].join("\n");
 
 export const EXIT_OK = 0;
@@ -12,9 +13,9 @@ export const EXIT_FAILED = 1;
 export const EXIT_USAGE = 2;
 
 export function runTokenCommand(args: readonly string[], tokens: TokenStore, write: (line: string) => void): number {
-  const [group, action, value] = args;
+  const [group, action, value, label] = args;
   if (group !== "token") return usage(write);
-  if (action === "create" && value) return createToken(value, tokens, write);
+  if (action === "create" && value) return createToken(value, label ?? null, tokens, write);
   if (action === "revoke" && value) return revokeToken(value, tokens, write);
   if (action === "list") return listTokens(tokens, write);
   return usage(write);
@@ -25,9 +26,9 @@ function usage(write: (line: string) => void): number {
   return EXIT_USAGE;
 }
 
-function createToken(vaultId: string, tokens: TokenStore, write: (line: string) => void): number {
+function createToken(vaultId: string, label: string | null, tokens: TokenStore, write: (line: string) => void): number {
   try {
-    const issued = tokens.issue(vaultId);
+    const issued = tokens.issue(vaultId, label);
     write(`tokenId: ${issued.tokenId}`);
     write(`vaultId: ${issued.vaultId}`);
     write(`token: ${issued.token}`);
@@ -52,7 +53,7 @@ function revokeToken(tokenId: string, tokens: TokenStore, write: (line: string) 
 function listTokens(tokens: TokenStore, write: (line: string) => void): number {
   for (const summary of tokens.list()) {
     const state = summary.revokedAt === null ? "active" : "revoked";
-    write(`${summary.tokenId}  ${summary.vaultId}  ${new Date(summary.createdAt).toISOString()}  ${state}`);
+    write(`${summary.tokenId}  ${summary.vaultId}  ${new Date(summary.createdAt).toISOString()}  ${state}  ${summary.label ?? "-"}`);
   }
   return EXIT_OK;
 }

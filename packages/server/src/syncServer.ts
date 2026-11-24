@@ -6,6 +6,8 @@ import { handleBlobRequest } from "./blobRoutes";
 import type { BlobStore } from "./blobStore";
 import type { DocumentStore } from "./documentStore";
 import type { Logger } from "./logger";
+import { handlePairRequest } from "./pairRoutes";
+import type { PairStore } from "./pairStore";
 import type { TokenStore } from "./tokenStore";
 
 const DEFAULT_STORE_DEBOUNCE_MS = 2000;
@@ -19,12 +21,13 @@ export interface SyncServerOptions {
   documents: DocumentStore;
   tokens: TokenStore;
   blobs: BlobStore;
+  pairs: PairStore;
   logger: Logger;
   storeDebounceMs?: number;
 }
 
 export function createSyncServer(options: SyncServerOptions): Server<ConnectionContext> {
-  const { documents, tokens, blobs, logger } = options;
+  const { documents, tokens, blobs, pairs, logger } = options;
   const server = new Server<ConnectionContext>({
     port: options.port,
     address: options.address,
@@ -42,6 +45,7 @@ export function createSyncServer(options: SyncServerOptions): Server<ConnectionC
       const resolveVaultId = (token: string) => tokens.resolveVaultId(token);
       // throwing null is how a Hocuspocus hook says the request is answered
       if (await handleBlobRequest(request, response, { blobs, resolveVaultId, logger })) throw null;
+      if (await handlePairRequest(request, response, { pairs, resolveVaultId, logger })) throw null;
     },
     async onAuthenticate({ token, documentName, socketId }) {
       const loggedName = documentName.slice(0, MAX_LOGGED_NAME_LENGTH);

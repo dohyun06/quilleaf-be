@@ -15,6 +15,7 @@ export interface TokenSummary {
   vaultId: string;
   createdAt: number;
   revokedAt: number | null;
+  label: string | null;
 }
 
 export class InvalidVaultIdError extends Error {
@@ -24,7 +25,7 @@ export class InvalidVaultIdError extends Error {
   }
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
@@ -34,13 +35,13 @@ export class TokenStore {
     private readonly now: () => number = Date.now,
   ) {}
 
-  issue(vaultId: string): IssuedToken {
+  issue(vaultId: string, label: string | null = null): IssuedToken {
     if (!isValidVaultId(vaultId)) throw new InvalidVaultIdError(vaultId);
     const token = randomBytes(TOKEN_BYTES).toString("base64url");
     const tokenId = randomUUID();
     this.db
-      .prepare("INSERT INTO tokens (id, vault_id, token_hash, created_at, revoked_at) VALUES (?, ?, ?, ?, NULL)")
-      .run(tokenId, vaultId, hashToken(token), this.now());
+      .prepare("INSERT INTO tokens (id, vault_id, token_hash, created_at, revoked_at, label) VALUES (?, ?, ?, ?, NULL, ?)")
+      .run(tokenId, vaultId, hashToken(token), this.now(), label);
     return { tokenId, vaultId, token };
   }
 
@@ -61,13 +62,14 @@ export class TokenStore {
 
   list(): TokenSummary[] {
     const rows = this.db
-      .prepare("SELECT id, vault_id, created_at, revoked_at FROM tokens ORDER BY created_at")
-      .all() as Array<{ id: string; vault_id: string; created_at: number; revoked_at: number | null }>;
+      .prepare("SELECT id, vault_id, created_at, revoked_at, label FROM tokens ORDER BY created_at")
+      .all() as Array<{ id: string; vault_id: string; created_at: number; revoked_at: number | null; label: string | null }>;
     return rows.map((row) => ({
       tokenId: row.id,
       vaultId: row.vault_id,
       createdAt: row.created_at,
       revokedAt: row.revoked_at,
+      label: row.label,
     }));
   }
 }

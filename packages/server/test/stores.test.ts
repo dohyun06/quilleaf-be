@@ -54,6 +54,6 @@ describe("TokenStore", () => {
   it("lists tokens without secrets", () => {
     const tokens = new TokenStore(db, () => 42);
     const issued = tokens.issue("my-vault-01");
-    expect(tokens.list()).toEqual([{ tokenId: issued.tokenId, vaultId: "my-vault-01", createdAt: 42, revokedAt: null }]);
+    expect(tokens.list()).toEqual([{ tokenId: issued.tokenId, vaultId: "my-vault-01", createdAt: 42, revokedAt: null, label: null }]);
   });
 });
