@@ -8,6 +8,7 @@ import { BlobStore } from "../src/blobStore";
 import { openDatabase } from "../src/db";
 import { DocumentStore } from "../src/documentStore";
 import { createJsonLogger } from "../src/logger";
+import { PairStore } from "../src/pairStore";
 import { createSyncServer } from "../src/syncServer";
 import { TokenStore } from "../src/tokenStore";
 
@@ -19,12 +20,14 @@ afterEach(async () => {
 
 async function startServer(db: DatabaseSync): Promise<{ server: Server; url: string; logs: string[] }> {
   const logs: string[] = [];
+  const tokens = new TokenStore(db);
   const server = createSyncServer({
     port: 0,
     address: "127.0.0.1",
     documents: new DocumentStore(db),
-    tokens: new TokenStore(db),
+    tokens,
     blobs: new BlobStore(join(tmpdir(), "quilleaf-unused-blobs")), // these tests never reach the blob routes
+    pairs: new PairStore(db, tokens),
     logger: createJsonLogger((line) => logs.push(line)),
     storeDebounceMs: 0,
   });
